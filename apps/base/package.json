@@ -1,0 +1,40 @@
+{
+  "name": "@arc0/base",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "arc0": "./dist/cli.js",
+    "arc0-daemon": "./dist/daemon.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/daemon/index.ts",
+    "cli": "tsx src/cli/index.ts",
+    "build": "tsup",
+    "type:check": "tsc --noEmit",
+    "compile": "bun build --compile --minify src/cli/index.ts --outfile dist/arc0",
+    "compile:darwin-arm64": "bun build --compile --minify --target=bun-darwin-arm64 src/cli/index.ts --outfile dist/arc0-darwin-arm64",
+    "compile:darwin-x64": "bun build --compile --minify --target=bun-darwin-x64 src/cli/index.ts --outfile dist/arc0-darwin-x64",
+    "compile:linux-x64": "bun build --compile --minify --target=bun-linux-x64 src/cli/index.ts --outfile dist/arc0-linux-x64",
+    "compile:linux-arm64": "bun build --compile --minify --target=bun-linux-arm64 src/cli/index.ts --outfile dist/arc0-linux-arm64",
+    "compile:all": "pnpm compile:darwin-arm64 && pnpm compile:darwin-x64 && pnpm compile:linux-x64 && pnpm compile:linux-arm64"
+  },
+  "dependencies": {
+    "@arc0/types": "workspace:*",
+    "@clack/core": "^0.4.1",
+    "@clack/prompts": "^0.10.0",
+    "chalk": "^5.4.1",
+    "chokidar": "^4.0.3",
+    "open": "^10.2.0",
+    "picocolors": "^1.1.1",
+    "proper-lockfile": "^4.1.2",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@types/proper-lockfile": "^4.1.4",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.4",
+    "typescript": "catalog:"
+  }
+}
