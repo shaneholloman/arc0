@@ -15,7 +15,7 @@
     "@arc0/types": "workspace:*",
     "@inkjs/ui": "^2.0.0",
     "ink": "^6.2.0",
-    "react": "^19.2.3",
+    "react": "19.1.0",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {

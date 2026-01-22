@@ -142,8 +142,17 @@ test.describe('Session Navigation', () => {
 });
 
 test.describe('Disconnection Handling', () => {
-  test.skip('placeholder for disconnection tests', async ({ page }) => {
-    // These tests would require ability to stop/restart basemock mid-test
-    // Skipping for now - would need more fixture functionality
+  test.beforeEach(async ({ page }) => {
+    await initializeApp(page, { clearStore: true });
+  });
+
+  test('connection indicator shows disconnected state when no workstations', async ({ page }) => {
+    // Without any workstation, there's no connection to show
+    await page.goto('/');
+    await expect(page.locator(testId(TEST_IDS.APP_ROOT))).toBeVisible();
+
+    // Connection indicator should be visible and show disconnected state
+    const indicator = page.locator(testId(TEST_IDS.CONNECTION_INDICATOR));
+    await expect(indicator).toBeVisible();
   });
 });

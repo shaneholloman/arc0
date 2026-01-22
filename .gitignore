@@ -39,7 +39,8 @@ lerna-debug.log*
 coverage
 .nyc_output
 .playwright-mcp
-.test-results
+playwright-report
+test-results
 
 # Expo / React Native
 .expo/

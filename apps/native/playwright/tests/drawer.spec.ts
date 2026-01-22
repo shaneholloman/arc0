@@ -60,14 +60,18 @@ test.describe('Drawer Navigation - No Workstations', () => {
     await expect(sessionsTab).toBeVisible();
   });
 
-  test('clicking projects tab shows projects view', async ({ page }, testInfo) => {
-    // Skip on mobile - mobile with no workstations shows WelcomeEmpty instead of tab content
-    test.skip(testInfo.project.name === 'mobile-chrome', 'Mobile shows WelcomeEmpty when no workstations');
-
+  test('clicking projects tab shows appropriate content based on screen size', async ({ page }, testInfo) => {
     await page.locator(testId(TEST_IDS.PROJECTS_TAB)).click();
 
-    // Desktop shows "Projects view coming soon" in the drawer
-    await expect(page.locator('text=Projects view coming soon')).toBeVisible({ timeout: 10000 });
+    // On desktop (persistent drawer): shows "Projects view coming soon" in drawer
+    // On mobile (no persistent drawer): shows WelcomeEmpty in both drawer and main content
+    const isMobile = testInfo.project.name === 'mobile-chrome';
+
+    await expect(
+      isMobile
+        ? page.locator('text=Welcome to Arc0').first()
+        : page.locator('text=Projects view coming soon')
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 

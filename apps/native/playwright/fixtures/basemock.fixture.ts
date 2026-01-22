@@ -17,6 +17,37 @@ import path from 'path';
 // Types
 // =============================================================================
 
+export interface InjectMessageOptions {
+  type: 'bash' | 'bash-permission' | 'ask-question' | 'exit-plan-mode' | 'assistant-text' | 'user-text';
+  sessionId?: string; // Uses current session if not provided
+  command?: string;
+  description?: string;
+  question?: string;
+  options?: string[];
+  planContent?: string;
+  text?: string;
+  parentUuid?: string;
+  registerPending?: boolean;
+}
+
+export interface InjectMessageResult {
+  success: boolean;
+  messageId?: string;
+  toolUseId?: string;
+  error?: string;
+}
+
+export interface MockSession {
+  id: string;
+  provider: string;
+  name: string | null;
+  cwd: string;
+  model: string;
+  gitBranch: string;
+  startedAt: string;
+  open: boolean;
+}
+
 export interface BaseMockApi {
   /** The URL to connect to basemock */
   url: string;
@@ -24,10 +55,28 @@ export interface BaseMockApi {
   secret: string;
   /** Port number the server is running on */
   port: number;
+  /** Control API port (main port + 1) */
+  controlPort: number;
   /** Helper to add a workstation in the UI pointing to basemock */
   addWorkstationViaUI: (page: Page, name?: string) => Promise<void>;
   /** Create a test socket client connected to basemock */
   createClient: () => Promise<Socket>;
+  /** Get all sessions from basemock */
+  getSessions: () => Promise<MockSession[]>;
+  /** Get the current/default session from basemock */
+  getCurrentSession: () => Promise<MockSession | null>;
+  /** Inject a message into a session (appears in mobile app) */
+  injectMessage: (options: InjectMessageOptions) => Promise<InjectMessageResult>;
+  /** Inject a tool permission request that requires approval */
+  injectToolApproval: (command: string, description?: string) => Promise<InjectMessageResult>;
+  /** Inject an AskUserQuestion that requires user selection */
+  injectAskQuestion: (question: string, options: string[]) => Promise<InjectMessageResult>;
+  /** Inject an ExitPlanMode (plan approval) message */
+  injectPlanApproval: (planContent?: string) => Promise<InjectMessageResult>;
+  /** Trigger session sync to connected clients */
+  syncSessions: () => Promise<void>;
+  /** Navigate to the session chat page */
+  navigateToSession: (page: Page, sessionId?: string) => Promise<void>;
 }
 
 interface BaseMockFixtures {
@@ -39,51 +88,24 @@ interface BaseMockFixtures {
 // =============================================================================
 
 /**
- * Wait for basemock server to be ready by attempting to connect
+ * Wait for basemock server to be ready by checking the control API
  */
-async function waitForServer(url: string, secret: string, timeout = 30000): Promise<void> {
+async function waitForServer(controlUrl: string, timeout = 15000): Promise<void> {
   const start = Date.now();
 
   while (Date.now() - start < timeout) {
     try {
-      const socket = io(url, {
-        transports: ['websocket'],
-        reconnection: false,
-        timeout: 2000,
-        auth: { secret },
+      // Use simple HTTP fetch to control API - faster than WebSocket handshake
+      const response = await fetch(`${controlUrl}/api/sessions`, {
+        signal: AbortSignal.timeout(1000),
       });
-
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => {
-          socket.close();
-          reject(new Error('Connection timeout'));
-        }, 3000);
-
-        socket.on('connect', () => {
-          clearTimeout(timer);
-          // Send ping to verify server is responsive
-          socket.emit('ping', (response: { pong?: boolean }) => {
-            socket.close();
-            if (response?.pong) {
-              resolve();
-            } else {
-              reject(new Error('Invalid ping response'));
-            }
-          });
-        });
-
-        socket.on('connect_error', (err) => {
-          clearTimeout(timer);
-          socket.close();
-          reject(err);
-        });
-      });
-
-      return; // Server is ready
+      if (response.ok) {
+        return; // Server is ready
+      }
     } catch {
-      // Wait a bit before retrying
-      await new Promise((r) => setTimeout(r, 500));
+      // Server not ready yet, wait and retry
     }
+    await new Promise((r) => setTimeout(r, 200));
   }
 
   throw new Error(`BaseMock server not ready after ${timeout}ms`);
@@ -114,19 +136,20 @@ function killProcessOnPort(port: number): void {
  * Start basemock server as a child process
  */
 function startBaseMockServer(port: number, secret: string): ChildProcess {
-  // Calculate monorepo root
-  const mobileDir = process.cwd();
-  const monorepoRoot = mobileDir.endsWith('/apps/mobile')
-    ? path.resolve(mobileDir, '../..')
-    : mobileDir.replace('/apps/mobile', '');
+  // Calculate monorepo root from current working directory
+  const cwd = process.cwd();
+  const monorepoRoot = cwd.includes('/apps/native')
+    ? cwd.split('/apps/native')[0]
+    : cwd;
 
   const basemockDir = path.join(monorepoRoot, 'apps/basemock');
 
-  // Kill any leftover processes on this port before starting
-  killProcessOnPort(port);
+  // Note: Not killing processes preemptively as it can interfere with parallel tests
+  // If there's a port conflict, the server will fail to start and the test will fail
 
-  // Spawn tsx directly instead of going through pnpm for more reliable process control
-  const child = spawn('npx', ['tsx', 'src/headless.ts', '--port', String(port), '--secret', secret], {
+  // Use local tsx binary directly for faster startup (avoids npx/npm overhead)
+  const tsxPath = path.join(basemockDir, 'node_modules/.bin/tsx');
+  const child = spawn(tsxPath, ['src/headless.ts', '--port', String(port), '--secret', secret], {
     cwd: basemockDir,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true, // Create new process group for reliable cleanup
@@ -149,8 +172,10 @@ function startBaseMockServer(port: number, secret: string): ChildProcess {
 /**
  * Kill a process and its process group
  */
-function killServerProcess(serverProcess: ChildProcess, port: number): void {
-  // First try to kill the process group
+function killServerProcess(serverProcess: ChildProcess, _port: number): void {
+  // Only kill the server process directly - don't use killProcessOnPort
+  // because it would also kill any client processes (including the Playwright worker)
+  // that have connections to the port
   if (serverProcess.pid) {
     try {
       // Kill the entire process group (negative PID)
@@ -164,9 +189,6 @@ function killServerProcess(serverProcess: ChildProcess, port: number): void {
       }
     }
   }
-
-  // As a fallback, also kill any processes on the port
-  killProcessOnPort(port);
 }
 
 // =============================================================================
@@ -175,23 +197,30 @@ function killServerProcess(serverProcess: ChildProcess, port: number): void {
 
 export const test = base.extend<BaseMockFixtures>({
   basemock: async ({}, use, testInfo) => {
-    // Use a unique port for each parallel worker to avoid conflicts
-    // Spread ports out more to avoid any overlap
-    const port = 4000 + (testInfo.parallelIndex || 0) * 10 + Math.floor(Math.random() * 10);
+    // Use unique port based on testId (includes file + line number) to avoid collisions
+    // testInfo.testId is unique per test across all files
+    const testIdHash = testInfo.testId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const port = 5000 + (testInfo.parallelIndex || 0) * 1000 + (testIdHash % 400) * 2;
+    const controlPort = port + 1;
     const secret = `test-secret-${Date.now()}-${testInfo.parallelIndex}-${Math.random().toString(36).slice(2)}`;
     const url = `http://localhost:${port}`;
+    const controlUrl = `http://localhost:${controlPort}`;
 
     // Start basemock server
     const serverProcess = startBaseMockServer(port, secret);
 
+    // Track the current session for convenience
+    let cachedSession: MockSession | null = null;
+
     try {
-      // Wait for server to be ready
-      await waitForServer(url, secret);
+      // Wait for server to be ready (checks control API directly)
+      await waitForServer(controlUrl);
 
       const api: BaseMockApi = {
         url,
         secret,
         port,
+        controlPort,
 
         addWorkstationViaUI: async (page: Page, name?: string) => {
           // Navigate to settings
@@ -249,6 +278,78 @@ export const test = base.extend<BaseMockFixtures>({
           });
 
           return socket;
+        },
+
+        getSessions: async () => {
+          const response = await fetch(`${controlUrl}/api/sessions`);
+          const data = await response.json();
+          return data.sessions || [];
+        },
+
+        getCurrentSession: async () => {
+          if (cachedSession) return cachedSession;
+          const response = await fetch(`${controlUrl}/api/current-session`);
+          const data = await response.json();
+          cachedSession = data.session || null;
+          return cachedSession;
+        },
+
+        injectMessage: async (options: InjectMessageOptions) => {
+          // Get session ID if not provided
+          let sessionId = options.sessionId;
+          if (!sessionId) {
+            const session = await api.getCurrentSession();
+            if (!session) throw new Error('No current session available');
+            sessionId = session.id;
+          }
+
+          const response = await fetch(`${controlUrl}/api/inject-message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...options, sessionId }),
+          });
+
+          return response.json();
+        },
+
+        injectToolApproval: async (command: string, description?: string) => {
+          return api.injectMessage({
+            type: 'bash-permission',
+            command,
+            description: description || `Run: ${command}`,
+            registerPending: true,
+          });
+        },
+
+        injectAskQuestion: async (question: string, options: string[]) => {
+          return api.injectMessage({
+            type: 'ask-question',
+            question,
+            options,
+          });
+        },
+
+        injectPlanApproval: async (planContent?: string) => {
+          return api.injectMessage({
+            type: 'exit-plan-mode',
+            planContent,
+          });
+        },
+
+        syncSessions: async () => {
+          await fetch(`${controlUrl}/api/sync-sessions`, { method: 'POST' });
+        },
+
+        navigateToSession: async (page: Page, sessionId?: string) => {
+          const id = sessionId || (await api.getCurrentSession())?.id;
+          if (!id) throw new Error('No session ID available');
+          await page.goto(`/session/${id}/chat`);
+          await expect(page.locator('[data-testid="message-input"]')).toBeVisible({ timeout: 10000 });
+          // Wait for socket connection to fully establish
+          // The connection indicator shows UI is ready, but socket needs a moment to connect
+          await expect(page.locator('[data-testid="connection-indicator"]')).toBeVisible({ timeout: 10000 });
+          // Small delay to allow socket handshake to complete
+          await page.waitForTimeout(1000);
         },
       };
 
