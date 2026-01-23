@@ -10,9 +10,11 @@
     "./gemini": "./src/gemini/index.ts"
   },
   "dependencies": {
+    "@arc0/crypto": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "^22.15.27",
     "typescript": "catalog:",
     "@arc0/typescript-config": "workspace:*"
   }

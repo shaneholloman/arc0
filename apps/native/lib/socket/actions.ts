@@ -3,12 +3,14 @@
  * Each action uses ack callbacks with 30s timeout for request-response.
  *
  * Actions are sent to the workstation that owns the session.
+ * If the workstation connection has E2E encryption enabled, payloads are encrypted.
  */
 
 import { randomUUID } from 'expo-crypto';
 import type {
   ActionResult,
   ApproveToolUsePayload,
+  EncryptedEnvelope,
   ModelId,
   OpenSessionPayload,
   PromptMode,
@@ -19,6 +21,7 @@ import type {
 } from '@arc0/types';
 import { getSocketManager, type AppSocket } from './manager';
 import { logEvent, type EventType } from './eventLogger';
+import { encryptPayload, type EncryptionContext } from './encryption';
 
 // =============================================================================
 // Constants
@@ -58,6 +61,11 @@ export class ActionNoWorkstationError extends Error {
 // User action event names for typing
 type UserActionEventName = 'openSession' | 'sendPrompt' | 'stopAgent' | 'approveToolUse';
 
+interface SocketWithEncryption {
+  socket: AppSocket;
+  encryptionCtx?: EncryptionContext;
+}
+
 /**
  * Get a connected socket for sending actions.
  * For session-specific actions, looks up the session's workstation.
@@ -65,7 +73,7 @@ type UserActionEventName = 'openSession' | 'sendPrompt' | 'stopAgent' | 'approve
  *
  * @param workstationId - The workstation ID to get socket for
  */
-function getSocketForAction(workstationId: string): AppSocket {
+function getSocketForAction(workstationId: string): SocketWithEncryption {
   const manager = getSocketManager();
 
   if (!manager.isConnected(workstationId)) {
@@ -77,32 +85,42 @@ function getSocketForAction(workstationId: string): AppSocket {
     throw new ActionDisconnectedError();
   }
 
-  return socket;
+  // Get encryption context if available
+  const encryptionCtx = manager.getEncryptionContext(workstationId);
+
+  return { socket, encryptionCtx };
 }
 
 /**
  * Emit a Socket.IO event with ack callback and timeout.
- * @param socket - The socket to emit on
+ * Encrypts the payload if encryption context is provided.
+ *
+ * @param socketInfo - Socket and optional encryption context
  * @param eventName - The event name to emit
  * @param payload - The payload to send
  * @returns Promise that resolves with the ActionResult
  */
 function emitWithAck<T extends Record<string, unknown>>(
-  socket: AppSocket,
+  socketInfo: SocketWithEncryption,
   eventName: UserActionEventName,
   payload: T
 ): Promise<ActionResult> {
   return new Promise((resolve, reject) => {
     logEvent(eventName as EventType, 'out', `Sending ${eventName}`, payload as Record<string, unknown>);
 
+    // Encrypt payload if encryption is available
+    const payloadToSend: T | EncryptedEnvelope = socketInfo.encryptionCtx
+      ? encryptPayload(socketInfo.encryptionCtx, payload)
+      : payload;
+
     // Use Socket.IO's built-in timeout
     // We cast to any because Socket.IO's TypeScript types don't handle
     // dynamic event names well with ack callbacks
-    (socket.timeout(ACTION_TIMEOUT_MS) as unknown as {
+    (socketInfo.socket.timeout(ACTION_TIMEOUT_MS) as unknown as {
       emit: (event: string, payload: unknown, callback: (err: Error | null, result: ActionResult) => void) => void;
     }).emit(
       eventName,
-      payload,
+      payloadToSend,
       (err: Error | null, result: ActionResult) => {
         if (err) {
           logEvent(eventName as EventType, 'system', `${eventName} failed: ${err.message}`);
@@ -148,7 +166,7 @@ export function openSession(
   cwd: string,
   name?: string
 ): Promise<ActionResult> {
-  const socket = getSocketForAction(workstationId);
+  const socketInfo = getSocketForAction(workstationId);
 
   const payload: OpenSessionPayload = {
     ...createBasePayload(),
@@ -157,7 +175,7 @@ export function openSession(
     cwd,
   };
 
-  return emitWithAck(socket, 'openSession', payload);
+  return emitWithAck(socketInfo, 'openSession', payload);
 }
 
 /**
@@ -176,14 +194,14 @@ export function sendPrompt(
     lastMessageTs?: number;
   }
 ): Promise<ActionResult> {
-  const socket = getSocketForAction(workstationId);
+  const socketInfo = getSocketForAction(workstationId);
 
   const payload: SendPromptPayload = {
     ...createBasePayload(),
     ...params,
   };
 
-  return emitWithAck(socket, 'sendPrompt', payload);
+  return emitWithAck(socketInfo, 'sendPrompt', payload);
 }
 
 /**
@@ -199,14 +217,14 @@ export function stopAgent(
     lastMessageTs?: number;
   }
 ): Promise<ActionResult> {
-  const socket = getSocketForAction(workstationId);
+  const socketInfo = getSocketForAction(workstationId);
 
   const payload: StopAgentPayload = {
     ...createBasePayload(),
     ...params,
   };
 
-  return emitWithAck(socket, 'stopAgent', payload);
+  return emitWithAck(socketInfo, 'stopAgent', payload);
 }
 
 /**
@@ -230,12 +248,12 @@ export function approveToolUse(
     lastMessageTs?: number;
   }
 ): Promise<ActionResult> {
-  const socket = getSocketForAction(workstationId);
+  const socketInfo = getSocketForAction(workstationId);
 
   const payload: ApproveToolUsePayload = {
     ...createBasePayload(),
     ...params,
   };
 
-  return emitWithAck(socket, 'approveToolUse', payload);
+  return emitWithAck(socketInfo, 'approveToolUse', payload);
 }

@@ -17,7 +17,7 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useStore, useTable, useValue } from 'tinybase/ui-react';
 import { generateProjectId, handleMessagesBatch, handleSessionsSync } from '../store/handlers';
 import { useStoreContext } from '../store/provider';
-import { getWorkstationSecret, setWorkstationSecret, deleteWorkstationSecret, deleteWorkstationEncryptionKey } from '../settings/workstations';
+import { getWorkstationSecret, setWorkstationSecret, deleteWorkstationSecret, setWorkstationEncryptionKey, deleteWorkstationEncryptionKey, getWorkstationEncryptionKey } from '../settings/workstations';
 import { getSocketManager } from './manager';
 import type {
   ConnectionState,
@@ -54,8 +54,8 @@ interface SocketContextValue {
   disconnectAll: () => void;
   /** Reconnect to all enabled workstations */
   reconnectAll: () => Promise<void>;
-  /** Add a new workstation (workstationId comes from Base via test connection) */
-  addWorkstation: (workstationId: string, name: string, url: string, secret: string) => Promise<void>;
+  /** Add a new workstation (workstationId comes from Base via pairing) */
+  addWorkstation: (workstationId: string, name: string, url: string, authToken: string, encryptionKey?: string) => Promise<void>;
   /** Update a workstation */
   updateWorkstation: (id: string, updates: { name?: string; url?: string; secret?: string; enabled?: boolean }) => Promise<void>;
   /** Remove a workstation */
@@ -230,8 +230,12 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
 
     for (const [id, row] of Object.entries(workstationsTable)) {
       if (row.enabled === 1 && row.url) {
-        const secret = await getWorkstationSecret(id);
-        manager.connect(id, row.url, secret ?? undefined);
+        const authToken = await getWorkstationSecret(id);
+        const encryptionKey = await getWorkstationEncryptionKey(id);
+        manager.connect(id, row.url, {
+          authToken: authToken ?? undefined,
+          encryptionKey: encryptionKey ?? undefined,
+        });
       }
     }
   }, [store, workstationsTable, manager]);
@@ -253,7 +257,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
   // ==========================================================================
 
   const addWorkstation = useCallback(
-    async (workstationId: string, name: string, url: string, secret: string): Promise<void> => {
+    async (workstationId: string, name: string, url: string, authToken: string, encryptionKey?: string): Promise<void> => {
       if (!store) throw new Error('Store not ready');
 
       const now = new Date().toISOString();
@@ -283,11 +287,16 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
         updated_at: now,
       });
 
-      // Save secret to SecureStore
-      await setWorkstationSecret(workstationId, secret);
+      // Save auth token to SecureStore (replaces old "secret")
+      await setWorkstationSecret(workstationId, authToken);
+
+      // Save encryption key if provided
+      if (encryptionKey) {
+        await setWorkstationEncryptionKey(workstationId, encryptionKey);
+      }
 
       // Connect to the new workstation
-      manager.connect(workstationId, url, secret);
+      manager.connect(workstationId, url, { authToken, encryptionKey });
 
       console.log(`[SocketProvider] Added workstation ${workstationId}: ${name} at ${url}`);
     },
@@ -358,8 +367,12 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
         }
       } else if (updates.url !== undefined || updates.secret !== undefined) {
         // Reconnect if URL or secret changed
-        const secret = await getWorkstationSecret(id);
-        await manager.reconnect(id, newUrl, secret ?? undefined);
+        const authToken = await getWorkstationSecret(id);
+        const encryptionKey = await getWorkstationEncryptionKey(id);
+        await manager.reconnect(id, newUrl, {
+          authToken: authToken ?? undefined,
+          encryptionKey: encryptionKey ?? undefined,
+        });
       }
 
       console.log(`[SocketProvider] Updated workstation ${id}`);
@@ -524,9 +537,14 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
     // Connect to all enabled workstations
     for (const [id, row] of Object.entries(table)) {
       if (row.enabled === 1 && row.url) {
-        getWorkstationSecret(id).then((secret) => {
-          manager.connect(id, row.url!, secret ?? undefined);
-        });
+        Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
+          ([authToken, encryptionKey]) => {
+            manager.connect(id, row.url!, {
+              authToken: authToken ?? undefined,
+              encryptionKey: encryptionKey ?? undefined,
+            });
+          }
+        );
       }
     }
 
@@ -554,9 +572,14 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       const row = workstationsTable[id];
       if (row.enabled === 1 && row.url && !manager.isConnected(id)) {
         // New or newly enabled workstation - connect
-        getWorkstationSecret(id).then((secret) => {
-          manager.connect(id, row.url!, secret ?? undefined);
-        });
+        Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
+          ([authToken, encryptionKey]) => {
+            manager.connect(id, row.url!, {
+              authToken: authToken ?? undefined,
+              encryptionKey: encryptionKey ?? undefined,
+            });
+          }
+        );
       }
     }
 
@@ -586,9 +609,14 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
           const state = manager.getConnectionState(id);
           if (row.enabled === 1 && row.url && state.status === 'disconnected') {
             console.log(`[SocketProvider] App active, reconnecting ${id}...`);
-            getWorkstationSecret(id).then((secret) => {
-              manager.connect(id, row.url!, secret ?? undefined);
-            });
+            Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
+              ([authToken, encryptionKey]) => {
+                manager.connect(id, row.url!, {
+                  authToken: authToken ?? undefined,
+                  encryptionKey: encryptionKey ?? undefined,
+                });
+              }
+            );
           }
         }
       }

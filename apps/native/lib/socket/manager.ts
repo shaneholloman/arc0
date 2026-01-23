@@ -2,14 +2,24 @@
  * SocketManager: Central coordinator for multiple workstation connections.
  * Manages a Map of workstation ID -> Socket connection.
  *
+ * Supports both legacy (shared secret) and E2E encrypted modes.
+ *
  * Uses useSyncExternalStore pattern for React integration.
  */
 
 import { io, Socket } from 'socket.io-client';
 import { logEvent } from './eventLogger';
+import {
+  encryptPayload,
+  decryptPayload,
+  isEncryptedEnvelope,
+  clearKeyCache,
+  type EncryptionContext,
+} from './encryption';
 import type {
   ClientToServerEvents,
   ConnectionState,
+  EncryptedEnvelope,
   InitPayload,
   RawMessagesBatchPayload,
   ServerToClientEvents,
@@ -24,10 +34,21 @@ export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 // Types
 // =============================================================================
 
+export interface WorkstationCredentials {
+  /** Auth token for socket authentication (base64) */
+  authToken?: string;
+  /** Encryption key for E2E encryption (base64) */
+  encryptionKey?: string;
+  /** Legacy: shared secret */
+  secret?: string;
+}
+
 export interface WorkstationConnection {
   socket: AppSocket;
   state: ConnectionState;
   url: string;
+  /** Encryption context if using E2E encryption */
+  encryptionCtx?: EncryptionContext;
 }
 
 export interface SocketManagerHandlers {
@@ -65,12 +86,14 @@ export class SocketManager {
   // ==========================================================================
 
   /**
-   * Connect to a workstation.
+   * Connect to a workstation with credentials.
+   * Supports both legacy (shared secret) and new E2E encrypted modes.
+   *
    * @param workstationId - Unique identifier for the workstation
    * @param url - Socket.IO server URL
-   * @param secret - Optional shared secret for authentication
+   * @param credentials - Auth credentials (secret, authToken, or encryptionKey)
    */
-  connect(workstationId: string, url: string, secret?: string): void {
+  connect(workstationId: string, url: string, credentials?: WorkstationCredentials): void {
     // Check if already connected
     const existing = this.connections.get(workstationId);
     if (existing?.socket?.connected) {
@@ -82,16 +105,34 @@ export class SocketManager {
     if (existing?.socket) {
       existing.socket.removeAllListeners();
       existing.socket.close();
+      // Clear encryption key cache
+      if (existing.encryptionCtx) {
+        clearKeyCache(existing.encryptionCtx.encryptionKey);
+      }
     }
 
     console.log(`[SocketManager] Connecting to ${workstationId} at ${url}...`);
 
+    // Create encryption context if using E2E encryption
+    let encryptionCtx: EncryptionContext | undefined;
+    if (credentials?.encryptionKey) {
+      encryptionCtx = { encryptionKey: credentials.encryptionKey };
+    }
+
     // Create initial state
     const state: ConnectionState = { status: 'connecting' };
-    const socket = this.createSocket(workstationId, url, secret);
+    const socket = this.createSocket(workstationId, url, credentials, encryptionCtx);
 
-    this.connections.set(workstationId, { socket, state, url });
+    this.connections.set(workstationId, { socket, state, url, encryptionCtx });
     this.notifyListeners();
+  }
+
+  /**
+   * Legacy connect method for backward compatibility.
+   * @deprecated Use connect(workstationId, url, { secret }) instead
+   */
+  connectLegacy(workstationId: string, url: string, secret?: string): void {
+    this.connect(workstationId, url, secret ? { secret } : undefined);
   }
 
   /**
@@ -125,11 +166,11 @@ export class SocketManager {
   /**
    * Reconnect to a workstation (disconnect then connect).
    */
-  async reconnect(workstationId: string, url: string, secret?: string): Promise<void> {
+  async reconnect(workstationId: string, url: string, credentials?: WorkstationCredentials): Promise<void> {
     this.disconnect(workstationId);
     // Small delay to ensure clean disconnect
     await new Promise((resolve) => setTimeout(resolve, 100));
-    this.connect(workstationId, url, secret);
+    this.connect(workstationId, url, credentials);
   }
 
   // ==========================================================================
@@ -187,6 +228,15 @@ export class SocketManager {
   }
 
   /**
+   * Get encryption context for a specific workstation.
+   * Returns undefined if not using encryption.
+   */
+  getEncryptionContext(workstationId: string): EncryptionContext | undefined {
+    const connection = this.connections.get(workstationId);
+    return connection?.encryptionCtx;
+  }
+
+  /**
    * Subscribe to state changes.
    * Compatible with useSyncExternalStore.
    */
@@ -223,7 +273,25 @@ export class SocketManager {
     }
   }
 
-  private createSocket(workstationId: string, url: string, secret?: string): AppSocket {
+  private createSocket(
+    workstationId: string,
+    url: string,
+    credentials?: WorkstationCredentials,
+    encryptionCtx?: EncryptionContext
+  ): AppSocket {
+    // Build auth object based on credentials
+    let auth: Record<string, string> | undefined;
+    if (credentials?.authToken && this.handlers) {
+      // New E2E encrypted mode with per-client token
+      auth = {
+        deviceId: this.handlers.getDeviceId(),
+        authToken: credentials.authToken,
+      };
+    } else if (credentials?.secret) {
+      // Legacy shared secret mode
+      auth = { secret: credentials.secret };
+    }
+
     const socket = io(url, {
       transports: ['websocket'],
       reconnection: true,
@@ -231,7 +299,7 @@ export class SocketManager {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 4000,
       path: '/socket.io',
-      ...(secret && { auth: { secret } }),
+      ...(auth && { auth }),
     }) as AppSocket;
 
     // Connection events
@@ -300,43 +368,59 @@ export class SocketManager {
       });
     });
 
-    // Business events
-    socket.on('sessions', async (payload) => {
-      console.log(`[SocketManager] ${workstationId} received ${payload.sessions.length} sessions`);
-      logEvent('sessions', 'in', `${workstationId}: ${payload.sessions.length} sessions`, {
-        workstationId: payload.workstationId,
-        sessionCount: payload.sessions.length,
-      });
-      if (this.handlers) {
-        try {
-          await this.handlers.onSessionsSync(payload);
-        } catch (error) {
-          console.error(`[SocketManager] ${workstationId} error handling sessions:`, error);
-          logEvent('error', 'system', `${workstationId} error processing sessions`, {
-            error: error instanceof Error ? error.message : String(error),
-          });
+    // Business events - decrypt if encrypted
+    socket.on('sessions', async (payloadOrEnvelope) => {
+      try {
+        // Decrypt if encrypted
+        let payload: SessionsSyncPayload;
+        if (encryptionCtx && isEncryptedEnvelope(payloadOrEnvelope)) {
+          payload = decryptPayload<SessionsSyncPayload>(encryptionCtx, payloadOrEnvelope);
+        } else {
+          payload = payloadOrEnvelope as unknown as SessionsSyncPayload;
         }
+
+        console.log(`[SocketManager] ${workstationId} received ${payload.sessions.length} sessions`);
+        logEvent('sessions', 'in', `${workstationId}: ${payload.sessions.length} sessions`, {
+          workstationId: payload.workstationId,
+          sessionCount: payload.sessions.length,
+        });
+        if (this.handlers) {
+          await this.handlers.onSessionsSync(payload);
+        }
+      } catch (error) {
+        console.error(`[SocketManager] ${workstationId} error handling sessions:`, error);
+        logEvent('error', 'system', `${workstationId} error processing sessions`, {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     });
 
-    socket.on('messages', async (payload, callback) => {
-      console.log(`[SocketManager] ${workstationId} received ${payload.messages.length} messages`);
-      logEvent('messages', 'in', `${workstationId}: ${payload.messages.length} messages`, {
-        batchId: payload.batchId,
-        workstationId: payload.workstationId,
-        messageCount: payload.messages.length,
-      });
-      if (this.handlers) {
-        try {
+    socket.on('messages', async (payloadOrEnvelope, callback) => {
+      try {
+        // Decrypt if encrypted
+        let payload: RawMessagesBatchPayload;
+        if (encryptionCtx && isEncryptedEnvelope(payloadOrEnvelope)) {
+          payload = decryptPayload<RawMessagesBatchPayload>(encryptionCtx, payloadOrEnvelope);
+        } else {
+          payload = payloadOrEnvelope as unknown as RawMessagesBatchPayload;
+        }
+
+        console.log(`[SocketManager] ${workstationId} received ${payload.messages.length} messages`);
+        logEvent('messages', 'in', `${workstationId}: ${payload.messages.length} messages`, {
+          batchId: payload.batchId,
+          workstationId: payload.workstationId,
+          messageCount: payload.messages.length,
+        });
+        if (this.handlers) {
           await this.handlers.onMessagesBatch(payload);
           callback();
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          console.error(`[SocketManager] ${workstationId} error handling messages:`, errorMessage);
-          logEvent('error', 'system', `${workstationId} error processing messages`, { error: errorMessage });
+        } else {
           callback();
         }
-      } else {
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`[SocketManager] ${workstationId} error handling messages:`, errorMessage);
+        logEvent('error', 'system', `${workstationId} error processing messages`, { error: errorMessage });
         callback();
       }
     });

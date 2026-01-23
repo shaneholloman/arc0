@@ -10,6 +10,8 @@ import { hooksCommand } from "./commands/hooks.js";
 import { tunnelCommand } from "./commands/tunnel.js";
 import { installCommand } from "./commands/install.js";
 import { uninstallCommand } from "./commands/uninstall.js";
+import { pairCommand } from "./commands/pair.js";
+import { clientsCommand } from "./commands/clients.js";
 
 // ============================================
 // ASCII ART - Replace this string with your own
@@ -73,7 +75,7 @@ function printRainbowArt(): void {
 }
 
 const HELP = `
-${pc.bold("Arc0")} - Workstation client tp sync your coding sessons with Arc0 apps
+${pc.bold("Arc0")} - Workstation client to sync your coding sessions with Arc0 apps
 
 ${pc.bold("USAGE")}
   arc0 [command] [options]
@@ -83,6 +85,8 @@ ${pc.bold("COMMANDS")}
   start       Start the daemon
   stop        Stop the daemon
   status      Check daemon status
+  pair        Pair a mobile device (secure E2E encryption)
+  clients     Manage paired devices (list/revoke)
   install     Enable auto-start on login (macOS)
   uninstall   Disable auto-start
   hooks       Manage provider hooks (install/uninstall/status)
@@ -97,7 +101,8 @@ ${pc.bold("OPTIONS")}
 ${pc.bold("EXAMPLES")}
   arc0              Interactive menu
   arc0 start        Start daemon in background
-  arc0 auth login   Login to enable Arc0 tunnel
+  arc0 pair         Start pairing session for mobile app
+  arc0 clients      List paired devices
   arc0 status       Check if daemon is running
 `;
 
@@ -134,6 +139,8 @@ async function interactiveMode() {
       },
       { value: "start", label: "Start", hint: "Start the daemon" },
       { value: "stop", label: "Stop", hint: "Stop the daemon" },
+      { value: "pair", label: "Pair", hint: "Pair a mobile device" },
+      { value: "clients", label: "Clients", hint: "Manage paired devices" },
       {
         value: "install",
         label: "Install",
@@ -165,6 +172,12 @@ async function interactiveMode() {
       break;
     case "stop":
       await stopCommand();
+      break;
+    case "pair":
+      await pairCommand();
+      break;
+    case "clients":
+      await clientsCommand();
       break;
     case "install":
       await installCommand();
@@ -241,6 +254,12 @@ async function main() {
       break;
     case "tunnel":
       await tunnelCommand(flags[0]); // Pass subcommand: status/login/logout/logs
+      break;
+    case "pair":
+      await pairCommand();
+      break;
+    case "clients":
+      await clientsCommand(flags[0], flags[1]); // Pass subcommand: list/revoke and optional arg
       break;
     default:
       console.error(`Unknown command: ${command}`);

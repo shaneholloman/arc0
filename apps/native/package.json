@@ -27,6 +27,7 @@
     "playwright:install": "playwright install chromium"
   },
   "dependencies": {
+    "@arc0/crypto": "workspace:*",
     "@arc0/types": "workspace:*",
     "@expo-google-fonts/audiowide": "^0.2.3",
     "@expo/vector-icons": "^15.0.3",

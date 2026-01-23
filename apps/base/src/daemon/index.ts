@@ -26,6 +26,7 @@ import {
   type SessionData,
   type StoredLine,
 } from "../shared/index.js";
+import { loadClientStore } from "../shared/clients.js";
 
 async function sessionFileToData(session: SessionFile): Promise<SessionData> {
   // Check if session is running in tmux (interactive)
@@ -164,10 +165,20 @@ async function main() {
     }
   };
 
+  // Check if there are any registered clients (from pairing)
+  const clientStore = loadClientStore();
+  const hasRegisteredClients = Object.keys(clientStore.clients).length > 0;
+
+  if (hasRegisteredClients) {
+    console.log(`[daemon] Found ${Object.keys(clientStore.clients).length} paired client(s), enabling per-client auth`);
+  }
+
   // Create socket server (all interfaces, for mobile via tunnel)
   const socketServer = new SocketServer({
     workstationId,
     secret: credentials.secret,
+    // Enable per-client auth if there are paired clients
+    useClientAuth: hasRegisteredClients,
     actionHandlers,
     onConnect: () => {
       // Send current sessions and projects to newly connected client

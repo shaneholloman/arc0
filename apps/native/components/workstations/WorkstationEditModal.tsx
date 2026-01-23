@@ -2,14 +2,13 @@
  * WorkstationEditModal: Add or edit a workstation configuration.
  *
  * For new workstations:
- * - User enters URL + secret
- * - "Test Connection" establishes temporary connection and pings Base
- * - Base responds with workstationId (lightweight - no message sync)
- * - On success, user can save (using Base's workstationId)
+ * - User enters URL + pairing code (from `arc0 pair`)
+ * - "Pair Workstation" performs SPAKE2 pairing
+ * - On success, authToken + encryptionKey are derived and stored
  *
  * For existing workstations:
- * - Edit name, URL, secret, enabled toggle
- * - Changes trigger reconnection
+ * - Edit name, URL, enabled toggle only
+ * - No re-pairing (pairing is one-time)
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,20 +25,14 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { io, Socket } from 'socket.io-client';
-import { AlertTriangleIcon, CheckCircleIcon, EyeIcon, EyeOffIcon, Trash2Icon, XCircleIcon, XIcon } from 'lucide-react-native';
+import { AlertTriangleIcon, CheckCircleIcon, Trash2Icon, XCircleIcon, XIcon } from 'lucide-react-native';
 import { useUniwind } from 'uniwind';
 import { useTable, useValue } from 'tinybase/ui-react';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { useSocketContext } from '@/lib/socket/provider';
-import {
-  getWorkstationSecret,
-  getWorkstationEncryptionKey,
-  setWorkstationEncryptionKey,
-  deleteWorkstationEncryptionKey,
-} from '@/lib/settings/workstations';
+import { pairWithWorkstation, type PairingResult } from '@/lib/socket/pairing';
 import type { WorkstationConfig } from '@/lib/store/hooks';
 import { THEME } from '@/lib/theme';
 
@@ -71,6 +64,26 @@ function isHttpUrl(urlString: string): boolean {
   }
 }
 
+/**
+ * Format pairing code with dash (XXXX-XXXX)
+ */
+function formatPairingCode(code: string): string {
+  // Remove existing dashes and non-alphanumeric chars
+  const clean = code.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  if (clean.length <= 4) {
+    return clean;
+  }
+  return `${clean.slice(0, 4)}-${clean.slice(4, 8)}`;
+}
+
+/**
+ * Check if pairing code is valid (8 alphanumeric chars, with optional dash)
+ */
+function isValidPairingCode(code: string): boolean {
+  const clean = code.replace(/[^a-zA-Z0-9]/g, '');
+  return clean.length === 8;
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -82,111 +95,47 @@ interface WorkstationEditModalProps {
   onClose: () => void;
 }
 
-interface TestResult {
-  success: boolean;
-  workstationId?: string;
-  workstationName?: string;
-  error?: string;
-}
-
 // =============================================================================
-// Test Connection Hook
+// Pairing Hook
 // =============================================================================
 
-function useTestConnection() {
-  const [isTesting, setIsTesting] = useState(false);
-  const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const socketRef = useRef<Socket | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTestingRef = useRef(false); // Ref to avoid stale closure in event handlers
-  const deviceId = useValue('device') as string | undefined;
+function usePairing(deviceId: string | undefined) {
+  const [isPairing, setIsPairing] = useState(false);
+  const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
+  const [pairingError, setPairingError] = useState<string | null>(null);
+  const abortRef = useRef(false);
 
-  const cleanup = useCallback(() => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+  const pair = useCallback(async (url: string, code: string): Promise<PairingResult | null> => {
+    setIsPairing(true);
+    setPairingError(null);
+    abortRef.current = false;
+
+    try {
+      // Pass the device ID from the store to ensure consistency
+      const result = await pairWithWorkstation(url, code, deviceId);
+      if (abortRef.current) return null;
+      setPairingResult(result);
+      return result;
+    } catch (err) {
+      if (abortRef.current) return null;
+      const message = err instanceof Error ? err.message : 'Pairing failed';
+      setPairingError(message);
+      return null;
+    } finally {
+      if (!abortRef.current) {
+        setIsPairing(false);
+      }
     }
-    if (socketRef.current) {
-      socketRef.current.removeAllListeners();
-      socketRef.current.close();
-      socketRef.current = null;
-    }
+  }, [deviceId]);
+
+  const reset = useCallback(() => {
+    abortRef.current = true;
+    setIsPairing(false);
+    setPairingResult(null);
+    setPairingError(null);
   }, []);
 
-  const testConnection = useCallback(
-    async (url: string, secret: string): Promise<TestResult> => {
-      cleanup();
-      setIsTesting(true);
-      isTestingRef.current = true;
-      setTestResult(null);
-
-      return new Promise((resolve) => {
-        const socket = io(url, {
-          transports: ['websocket'],
-          reconnection: false,
-          timeout: 10000,
-          auth: { secret },
-        });
-        socketRef.current = socket;
-
-        const finishTest = (result: TestResult) => {
-          cleanup();
-          setTestResult(result);
-          setIsTesting(false);
-          isTestingRef.current = false;
-          resolve(result);
-        };
-
-        // Timeout after 15 seconds
-        timeoutRef.current = setTimeout(() => {
-          finishTest({ success: false, error: 'Connection timeout' });
-        }, 15000);
-
-        socket.on('connect', () => {
-          // Use lightweight ping instead of full init to avoid message sync
-          socket.emit(
-            'ping',
-            (response: { pong?: boolean; workstationId?: string; timestamp?: number }) => {
-              if (response?.pong && response.workstationId) {
-                finishTest({
-                  success: true,
-                  workstationId: response.workstationId,
-                });
-              } else {
-                finishTest({ success: false, error: 'Invalid ping response' });
-              }
-            }
-          );
-        });
-
-        socket.on('connect_error', (err) => {
-          finishTest({ success: false, error: err.message });
-        });
-
-        socket.on('disconnect', (reason) => {
-          // Use ref to avoid stale closure
-          if (isTestingRef.current) {
-            finishTest({ success: false, error: `Disconnected: ${reason}` });
-          }
-        });
-      });
-    },
-    [cleanup, deviceId]
-  );
-
-  const resetTest = useCallback(() => {
-    cleanup();
-    setIsTesting(false);
-    isTestingRef.current = false;
-    setTestResult(null);
-  }, [cleanup]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return cleanup;
-  }, [cleanup]);
-
-  return { testConnection, isTesting, testResult, resetTest };
+  return { pair, isPairing, pairingResult, pairingError, reset };
 }
 
 // =============================================================================
@@ -214,69 +163,48 @@ export function WorkstationEditModal({
   // Get existing workstations to check for duplicates
   const workstationsTable = useTable('workstations') as Record<string, WorkstationRow>;
 
+  // Get device ID from store for pairing
+  const storeDeviceId = useValue('device') as string | undefined;
+
   // Form state
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
-  const [originalUrl, setOriginalUrl] = useState(''); // Track original URL for edit mode
-  const [secret, setSecret] = useState('');
+  const [pairingCode, setPairingCode] = useState('');
   const [enabled, setEnabled] = useState(true);
-  const [showSecret, setShowSecret] = useState(false);
-
-  // Encryption key state
-  const [encryptionKey, setEncryptionKey] = useState('');
-  const [originalEncryptionKey, setOriginalEncryptionKey] = useState('');
-  const [showEncryptionKey, setShowEncryptionKey] = useState(false);
 
   // Loading states
   const [isSaving, setIsSaving] = useState(false);
-  const [isLoadingSecret, setIsLoadingSecret] = useState(false);
-  const [isLoadingEncryptionKey, setIsLoadingEncryptionKey] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Test connection
-  const { testConnection, isTesting, testResult, resetTest } = useTestConnection();
+  // Pairing - pass device ID from store
+  const { pair, isPairing, pairingResult, pairingError, reset: resetPairing } = usePairing(storeDeviceId);
 
   const isEditing = workstation !== null;
   const connectionState = workstation
     ? allConnectionStates.get(workstation.id)
     : undefined;
 
-  // Check if URL has changed from original (edit mode only)
-  const urlChanged = isEditing && url.trim().toLowerCase() !== originalUrl.trim().toLowerCase();
-
-  // Check for issues with the connection test result
-  const connectionIssue = (() => {
-    if (!testResult?.success || !testResult.workstationId) {
+  // Check for issues with the pairing result
+  const pairingIssue = (() => {
+    if (!pairingResult?.workstationId) {
       return null;
     }
 
-    const wsId = testResult.workstationId;
+    const wsId = pairingResult.workstationId;
     const trimmedUrl = url.trim().toLowerCase();
 
-    // In edit mode with URL change: verify the new Base has the same workstationId
-    if (isEditing && urlChanged && workstation) {
-      if (wsId !== workstation.id) {
-        return `This URL points to a different Base service (ID: ${wsId.slice(0, 8)}...). To connect to a new Base, delete this workstation and add a new one.`;
-      }
-      // Same workstationId - URL change is OK (maybe IP changed)
-      return null;
+    // Check if workstation with this ID already exists
+    if (workstationsTable[wsId]) {
+      const existingName = workstationsTable[wsId].name ?? wsId;
+      return `A workstation "${existingName}" already exists with this Base. Please edit the existing workstation instead.`;
     }
 
-    // For new workstations: check for duplicates
-    if (!isEditing) {
-      // Check if workstation with this ID already exists
-      if (workstationsTable[wsId]) {
-        const existingName = workstationsTable[wsId].name ?? wsId;
-        return `A workstation "${existingName}" already exists with this Base. Please edit the existing workstation instead.`;
-      }
-
-      // Check if workstation with this URL already exists
-      for (const [id, row] of Object.entries(workstationsTable)) {
-        if (row.url?.toLowerCase() === trimmedUrl) {
-          const existingName = row.name ?? id;
-          return `A workstation "${existingName}" already uses this URL. Please edit the existing workstation instead.`;
-        }
+    // Check if workstation with this URL already exists
+    for (const [id, row] of Object.entries(workstationsTable)) {
+      if (row.url?.toLowerCase() === trimmedUrl) {
+        const existingName = row.name ?? id;
+        return `A workstation "${existingName}" already uses this URL. Please edit the existing workstation instead.`;
       }
     }
 
@@ -284,89 +212,65 @@ export function WorkstationEditModal({
   })();
 
   // Determine if save is allowed
-  // - New workstation: need URL and secret filled
-  // - Edit without URL change: always allowed
-  // - Edit with URL change: need successful test confirming same Base
   const canSave = (() => {
     if (!isEditing) {
-      // New workstation - just need URL and secret
-      return url.trim() && secret.trim() && !connectionIssue;
+      // New workstation - need successful pairing without issues
+      return pairingResult !== null && !pairingIssue;
     }
-    if (!urlChanged) {
-      // Editing without URL change - always OK
-      return true;
-    }
-    // Editing with URL change - need test to confirm same Base
-    return testResult?.success && testResult.workstationId && !connectionIssue;
+    // Editing - can always save (name, URL, enabled changes)
+    return url.trim() !== '';
   })();
 
   // Load existing workstation data when editing
   useEffect(() => {
     if (visible) {
-      resetTest();
+      resetPairing();
       setError(null);
 
       if (workstation) {
         setName(workstation.name);
         setUrl(workstation.url);
-        setOriginalUrl(workstation.url); // Track original for change detection
         setEnabled(workstation.enabled);
-        setShowSecret(false);
-        setShowEncryptionKey(false);
-
-        // Load secret from secure storage
-        setIsLoadingSecret(true);
-        getWorkstationSecret(workstation.id)
-          .then((loadedSecret) => {
-            setSecret(loadedSecret ?? '');
-          })
-          .finally(() => {
-            setIsLoadingSecret(false);
-          });
-
-        // Load encryption key from secure storage
-        setIsLoadingEncryptionKey(true);
-        getWorkstationEncryptionKey(workstation.id)
-          .then((loadedKey) => {
-            const normalizedKey = loadedKey ?? '';
-            setEncryptionKey(normalizedKey);
-            setOriginalEncryptionKey(normalizedKey);
-          })
-          .finally(() => {
-            setIsLoadingEncryptionKey(false);
-          });
+        setPairingCode('');
       } else {
         // Reset form for new workstation
         setName('');
         setUrl('');
-        setOriginalUrl('');
-        setSecret('');
+        setPairingCode('');
         setEnabled(true);
-        setShowSecret(false);
-        setEncryptionKey('');
-        setOriginalEncryptionKey('');
-        setShowEncryptionKey(false);
       }
     }
-  }, [visible, workstation, resetTest]);
+  }, [visible, workstation, resetPairing]);
 
-  // Reset test result when URL or secret changes (always reset - needed for URL change validation)
+  // Reset pairing when URL or code changes
   useEffect(() => {
-    resetTest();
-  }, [url, secret, resetTest]);
+    if (!isEditing) {
+      resetPairing();
+    }
+  }, [url, pairingCode, isEditing, resetPairing]);
 
-  const handleTestConnection = useCallback(async () => {
-    if (!url.trim() || !secret.trim()) {
-      setError('URL and secret are required');
+  const handlePairingCodeChange = useCallback((text: string) => {
+    // Format as user types
+    const formatted = formatPairingCode(text);
+    setPairingCode(formatted);
+  }, []);
+
+  const handlePair = useCallback(async () => {
+    if (!url.trim()) {
+      setError('URL is required');
       return;
     }
     if (!isValidUrl(url.trim())) {
       setError('Please enter a valid URL (e.g., https://io43e7u.t.arc0.ai)');
       return;
     }
+    if (!isValidPairingCode(pairingCode)) {
+      setError('Please enter a valid pairing code (8 characters, e.g., ABCD-1234)');
+      return;
+    }
     setError(null);
-    await testConnection(url.trim(), secret.trim());
-  }, [url, secret, testConnection]);
+    await pair(url.trim(), pairingCode);
+  }, [url, pairingCode, pair]);
 
   const handleSave = useCallback(async () => {
     // Validate
@@ -378,73 +282,43 @@ export function WorkstationEditModal({
       setError('Please enter a valid URL (e.g., https://io43e7u.t.arc0.ai)');
       return;
     }
-    if (!isEditing && !secret.trim()) {
-      setError('Secret is required');
-      return;
-    }
 
     setIsSaving(true);
     setError(null);
 
     try {
-      let workstationId: string;
-
       if (isEditing && workstation) {
-        // Update existing workstation
-        workstationId = workstation.id;
-        await updateWorkstation(workstationId, {
+        // Update existing workstation (name, URL, enabled only)
+        await updateWorkstation(workstation.id, {
           name: name.trim() || workstation.name,
           url: url.trim(),
-          secret: secret.trim() || undefined,
           enabled,
         });
       } else {
-        // For new workstation, test connection first if not already tested
-        let wsId = testResult?.workstationId;
-        if (!wsId) {
-          const result = await testConnection(url.trim(), secret.trim());
-          if (!result.success || !result.workstationId) {
-            setError(result.error || 'Failed to connect to workstation');
-            setIsSaving(false);
-            return;
-          }
-          wsId = result.workstationId;
-
-          // Check for duplicates (inline test path - connectionIssue won't have updated yet)
-          if (workstationsTable[wsId]) {
-            const existingName = workstationsTable[wsId].name ?? wsId;
-            setError(
-              `A workstation "${existingName}" already exists with this Base. Please edit the existing workstation instead.`
-            );
-            setIsSaving(false);
-            return;
-          }
-
-          const trimmedUrl = url.trim().toLowerCase();
-          for (const [id, row] of Object.entries(workstationsTable)) {
-            if (row.url?.toLowerCase() === trimmedUrl) {
-              const existingName = row.name ?? id;
-              setError(
-                `A workstation "${existingName}" already uses this URL. Please edit the existing workstation instead.`
-              );
-              setIsSaving(false);
-              return;
-            }
-          }
+        // New workstation - must have pairing result
+        if (!pairingResult) {
+          setError('Please pair with the workstation first');
+          setIsSaving(false);
+          return;
         }
-        // Add new workstation using workstationId from Base
-        workstationId = wsId;
-        const workstationName = name.trim() || `Workstation ${workstationId.slice(0, 8)}`;
-        await addWorkstation(workstationId, workstationName, url.trim(), secret.trim());
-      }
 
-      // Save encryption key if provided
-      const trimmedEncryptionKey = encryptionKey.trim();
-      const trimmedOriginalEncryptionKey = originalEncryptionKey.trim();
-      if (trimmedEncryptionKey) {
-        await setWorkstationEncryptionKey(workstationId, trimmedEncryptionKey);
-      } else if (trimmedOriginalEncryptionKey) {
-        await deleteWorkstationEncryptionKey(workstationId);
+        // Check for duplicates
+        if (workstationsTable[pairingResult.workstationId]) {
+          const existingName = workstationsTable[pairingResult.workstationId].name ?? pairingResult.workstationId;
+          setError(`A workstation "${existingName}" already exists with this Base.`);
+          setIsSaving(false);
+          return;
+        }
+
+        // Add new workstation with credentials from pairing
+        const workstationName = name.trim() || pairingResult.workstationName || `Workstation ${pairingResult.workstationId.slice(0, 8)}`;
+        await addWorkstation(
+          pairingResult.workstationId,
+          workstationName,
+          url.trim(),
+          pairingResult.authToken,
+          pairingResult.encryptionKey
+        );
       }
 
       onClose();
@@ -458,12 +332,8 @@ export function WorkstationEditModal({
     workstation,
     name,
     url,
-    secret,
-    encryptionKey,
-    originalEncryptionKey,
     enabled,
-    testResult,
-    testConnection,
+    pairingResult,
     addWorkstation,
     updateWorkstation,
     workstationsTable,
@@ -502,8 +372,8 @@ export function WorkstationEditModal({
   }, [workstation, removeWorkstation, onClose]);
 
   const handleClose = () => {
-    if (isSaving || isDeleting || isTesting) return;
-    resetTest();
+    if (isSaving || isDeleting || isPairing) return;
+    resetPairing();
     onClose();
   };
 
@@ -526,7 +396,7 @@ export function WorkstationEditModal({
               </Text>
               <Pressable
                 onPress={handleClose}
-                disabled={isSaving || isDeleting || isTesting}
+                disabled={isSaving || isDeleting || isPairing}
                 hitSlop={8}
                 className="active:opacity-70">
                 <Icon as={XIcon} className="text-muted-foreground size-5" />
@@ -559,84 +429,50 @@ export function WorkstationEditModal({
                 </View>
               )}
 
-              {/* URL Change Warning (edit mode) */}
-              {isEditing && urlChanged && !testResult && (
-                <View className="bg-yellow-500/10 mb-4 flex-row items-center gap-2 rounded-lg px-3 py-2">
-                  <Icon as={XCircleIcon} className="text-yellow-600" size={18} />
-                  <View className="flex-1">
-                    <Text className="text-yellow-600 text-sm">
-                      URL changed - verification required
-                    </Text>
-                    <Text className="text-muted-foreground text-xs">
-                      Test the connection to verify this is the same Base service.
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Test Connection Result (when adding new OR editing with URL change) */}
-              {(!isEditing || urlChanged) && testResult && (
+              {/* Pairing Result (new workstation only) */}
+              {!isEditing && pairingResult && (
                 <View
                   className={`mb-4 flex-row items-center gap-2 rounded-lg px-3 py-2 ${
-                    testResult.success && !connectionIssue ? 'bg-green-500/10' : 'bg-red-500/10'
+                    !pairingIssue ? 'bg-green-500/10' : 'bg-red-500/10'
                   }`}>
                   <Icon
-                    as={testResult.success && !connectionIssue ? CheckCircleIcon : XCircleIcon}
-                    className={
-                      testResult.success && !connectionIssue ? 'text-green-500' : 'text-red-500'
-                    }
+                    as={!pairingIssue ? CheckCircleIcon : XCircleIcon}
+                    className={!pairingIssue ? 'text-green-500' : 'text-red-500'}
                     size={18}
                   />
                   <View className="flex-1">
                     <Text
                       className={`text-sm ${
-                        testResult.success && !connectionIssue ? 'text-green-600' : 'text-red-600'
+                        !pairingIssue ? 'text-green-600' : 'text-red-600'
                       }`}>
-                      {connectionIssue
-                        ? isEditing
-                          ? 'Different Base service detected'
-                          : 'Workstation already exists'
-                        : testResult.success
-                          ? 'Connected successfully'
-                          : testResult.error}
+                      {pairingIssue
+                        ? 'Workstation already exists'
+                        : `Connected to "${pairingResult.workstationName}"`}
                     </Text>
-                    {testResult.success && testResult.workstationId && !connectionIssue && (
+                    {!pairingIssue && (
                       <Text className="text-muted-foreground text-xs">
-                        ID: {testResult.workstationId}
+                        ID: {pairingResult.workstationId}
                       </Text>
                     )}
-                    {connectionIssue && (
-                      <Text className="text-muted-foreground text-xs">{connectionIssue}</Text>
+                    {pairingIssue && (
+                      <Text className="text-muted-foreground text-xs">{pairingIssue}</Text>
                     )}
+                  </View>
+                </View>
+              )}
+
+              {/* Pairing Error (new workstation only) */}
+              {!isEditing && pairingError && !pairingResult && (
+                <View className="bg-red-500/10 mb-4 flex-row items-center gap-2 rounded-lg px-3 py-2">
+                  <Icon as={XCircleIcon} className="text-red-500" size={18} />
+                  <View className="flex-1">
+                    <Text className="text-red-600 text-sm">{pairingError}</Text>
                   </View>
                 </View>
               )}
 
               {/* Form Fields */}
               <View className="gap-4">
-                {/* Name (optional for new, shows after test) */}
-                {(isEditing || testResult?.success) && (
-                  <View>
-                    <Text className="text-muted-foreground mb-1 text-sm">Name (optional)</Text>
-                    <TextInput
-                      testID="workstation-name-input"
-                      value={name}
-                      onChangeText={setName}
-                      placeholder={
-                        testResult?.workstationId
-                          ? `Workstation ${testResult.workstationId.slice(0, 8)}`
-                          : 'My MacBook'
-                      }
-                      placeholderTextColor={colors.mutedForeground}
-                      autoCapitalize="words"
-                      autoCorrect={false}
-                      editable={!isSaving && !isDeleting}
-                      className="bg-background border-border text-foreground rounded-lg border px-4 py-3"
-                      style={{ fontSize: 16 }}
-                    />
-                  </View>
-                )}
-
                 {/* URL */}
                 <View>
                   <Text className="text-muted-foreground mb-1 text-sm">URL</Text>
@@ -649,7 +485,7 @@ export function WorkstationEditModal({
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="url"
-                    editable={!isSaving && !isDeleting && !isTesting}
+                    editable={!isSaving && !isDeleting && !isPairing}
                     className="bg-background border-border text-foreground rounded-lg border px-4 py-3"
                     style={{ fontSize: 16 }}
                   />
@@ -663,68 +499,52 @@ export function WorkstationEditModal({
                   )}
                 </View>
 
-                {/* Secret */}
-                <View>
-                  <Text className="text-muted-foreground mb-1 text-sm">
-                    Secret {isEditing && '(leave blank to keep current)'}
-                  </Text>
-                  <View className="flex-row items-center">
+                {/* Pairing Code (new workstations only) */}
+                {!isEditing && !pairingResult && (
+                  <View>
+                    <Text className="text-muted-foreground mb-1 text-sm">Pairing Code</Text>
                     <TextInput
-                      testID="workstation-secret-input"
-                      value={isLoadingSecret ? 'Loading...' : secret}
-                      onChangeText={setSecret}
-                      placeholder={isEditing ? '' : 'Enter shared secret'}
+                      testID="workstation-pairing-code-input"
+                      value={pairingCode}
+                      onChangeText={handlePairingCodeChange}
+                      placeholder="ABCD-1234"
                       placeholderTextColor={colors.mutedForeground}
-                      autoCapitalize="none"
+                      autoCapitalize="characters"
                       autoCorrect={false}
-                      secureTextEntry={!showSecret}
-                      editable={!isSaving && !isDeleting && !isLoadingSecret && !isTesting}
-                      className="bg-background border-border text-foreground flex-1 rounded-lg border px-4 py-3"
-                      style={{ fontSize: 16 }}
+                      maxLength={9} // 8 chars + dash
+                      editable={!isSaving && !isPairing}
+                      className="bg-background border-border text-foreground rounded-lg border px-4 py-3 font-mono"
+                      style={{ fontSize: 16, letterSpacing: 2 }}
                     />
-                    <Pressable
-                      onPress={() => setShowSecret(!showSecret)}
-                      disabled={isLoadingSecret}
-                      hitSlop={8}
-                      className="ml-2 p-2 active:opacity-70">
-                      <Icon
-                        as={showSecret ? EyeOffIcon : EyeIcon}
-                        className="text-muted-foreground size-5"
-                      />
-                    </Pressable>
+                    <Text className="text-muted-foreground mt-1 text-xs">
+                      Run `arc0 pair` on your workstation to get this code
+                    </Text>
                   </View>
-                </View>
+                )}
 
-                {/* Encryption Key */}
-                <View>
-                  <Text className="text-muted-foreground mb-1 text-sm">
-                    Encryption Key {isEditing && '(clear to remove)'}
-                  </Text>
-                  <View className="flex-row items-center">
+                {/* Name (optional - shows after pairing for new, always for edit) */}
+                {(isEditing || pairingResult) && (
+                  <View>
+                    <Text className="text-muted-foreground mb-1 text-sm">Name (optional)</Text>
                     <TextInput
-                      value={isLoadingEncryptionKey ? 'Loading...' : encryptionKey}
-                      onChangeText={setEncryptionKey}
-                      placeholder={isEditing ? '' : 'Enter encryption key (optional)'}
+                      testID="workstation-name-input"
+                      value={name}
+                      onChangeText={setName}
+                      placeholder={
+                        pairingResult?.workstationName ||
+                        (pairingResult?.workstationId
+                          ? `Workstation ${pairingResult.workstationId.slice(0, 8)}`
+                          : 'My MacBook')
+                      }
                       placeholderTextColor={colors.mutedForeground}
-                      autoCapitalize="none"
+                      autoCapitalize="words"
                       autoCorrect={false}
-                      secureTextEntry={!showEncryptionKey}
-                      editable={!isSaving && !isDeleting && !isLoadingEncryptionKey && !isTesting}
-                      className="bg-background border-border text-foreground flex-1 rounded-lg border px-4 py-3"
+                      editable={!isSaving && !isDeleting}
+                      className="bg-background border-border text-foreground rounded-lg border px-4 py-3"
                       style={{ fontSize: 16 }}
                     />
-                    <Pressable
-                      onPress={() => setShowEncryptionKey(!showEncryptionKey)}
-                      disabled={isLoadingEncryptionKey}
-                      hitSlop={8}
-                      className="ml-2 p-2 active:opacity-70">
-                      <Icon
-                        as={showEncryptionKey ? EyeOffIcon : EyeIcon}
-                        className="text-muted-foreground size-5"
-                      />
-                    </Pressable>
                   </View>
-                </View>
+                )}
 
                 {/* Enabled Toggle (only when editing) */}
                 {isEditing && (
@@ -748,40 +568,42 @@ export function WorkstationEditModal({
 
                 {/* Actions */}
                 <View className="mt-2 gap-3">
-                  {/* Test Connection Button (for new workstations OR when URL changed in edit mode) */}
-                  {(!isEditing || urlChanged) && (
+                  {/* Pair Button (new workstations only, before pairing) */}
+                  {!isEditing && !pairingResult && (
                     <Pressable
-                      testID="workstation-test-button"
-                      onPress={handleTestConnection}
-                      disabled={isTesting || !url.trim() || !secret.trim()}
-                      className="bg-secondary items-center rounded-lg py-3 active:opacity-70 disabled:opacity-50">
-                      {isTesting ? (
+                      testID="workstation-pair-button"
+                      onPress={handlePair}
+                      disabled={isPairing || !url.trim() || !isValidPairingCode(pairingCode)}
+                      className="bg-primary items-center rounded-lg py-3 active:opacity-70 disabled:opacity-50">
+                      {isPairing ? (
                         <View className="flex-row items-center gap-2">
-                          <ActivityIndicator size="small" color={colors.foreground} />
-                          <Text className="text-secondary-foreground font-medium">Testing...</Text>
+                          <ActivityIndicator size="small" color="white" />
+                          <Text className="text-primary-foreground font-medium">Pairing...</Text>
                         </View>
                       ) : (
-                        <Text className="text-secondary-foreground font-medium">
-                          {urlChanged ? 'Verify Connection' : 'Test Connection'}
+                        <Text className="text-primary-foreground font-medium">
+                          Pair Workstation
                         </Text>
                       )}
                     </Pressable>
                   )}
 
-                  {/* Save Button */}
-                  <Pressable
-                    testID="workstation-save-button"
-                    onPress={handleSave}
-                    disabled={isSaving || isDeleting || isTesting || !canSave}
-                    className="bg-primary items-center rounded-lg py-3 active:opacity-70 disabled:opacity-50">
-                    {isSaving ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <Text className="text-primary-foreground font-medium">
-                        {isEditing ? 'Save Changes' : 'Add Workstation'}
-                      </Text>
-                    )}
-                  </Pressable>
+                  {/* Save Button (after pairing for new, or always for edit) */}
+                  {(isEditing || pairingResult) && (
+                    <Pressable
+                      testID="workstation-save-button"
+                      onPress={handleSave}
+                      disabled={isSaving || isDeleting || !canSave}
+                      className="bg-primary items-center rounded-lg py-3 active:opacity-70 disabled:opacity-50">
+                      {isSaving ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <Text className="text-primary-foreground font-medium">
+                          {isEditing ? 'Save Changes' : 'Add Workstation'}
+                        </Text>
+                      )}
+                    </Pressable>
+                  )}
 
                   {/* Delete Button (only when editing) */}
                   {isEditing && (
@@ -805,7 +627,7 @@ export function WorkstationEditModal({
                   <Pressable
                     testID="workstation-cancel-button"
                     onPress={handleClose}
-                    disabled={isSaving || isDeleting || isTesting}
+                    disabled={isSaving || isDeleting || isPairing}
                     className="items-center rounded-lg py-3 active:opacity-70 disabled:opacity-50">
                     <Text className="text-muted-foreground font-medium">Cancel</Text>
                   </Pressable>

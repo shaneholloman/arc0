@@ -13,6 +13,90 @@ import type {
 } from "./user-actions";
 
 // =============================================================================
+// Encryption Types
+// =============================================================================
+
+// Re-export type from @arc0/crypto (runtime function imported directly from crypto)
+export type { EncryptedEnvelope } from "@arc0/crypto";
+
+// =============================================================================
+// Socket.IO Authentication
+// =============================================================================
+
+/**
+ * Socket.IO handshake auth using per-client token.
+ */
+export interface SocketAuth {
+  /** Unique device identifier */
+  deviceId: string;
+  /** Auth token derived from SPAKE2 pairing */
+  authToken: string;
+}
+
+// =============================================================================
+// Pairing Protocol Types
+// =============================================================================
+
+/**
+ * Pairing error codes.
+ */
+export type PairingErrorCode =
+  | "INVALID_CODE"
+  | "INVALID_FORMAT"
+  | "TIMEOUT"
+  | "MAC_MISMATCH"
+  | "ALREADY_PAIRED"
+  | "PAIRING_DISABLED";
+
+/**
+ * Client -> Server: Initialize pairing with SPAKE2 message.
+ */
+export interface PairInitPayload {
+  /** Unique device identifier */
+  deviceId: string;
+  /** Human-readable device name */
+  deviceName: string;
+  /** SPAKE2 public message (hex encoded) */
+  spake2Message: string;
+}
+
+/**
+ * Server -> Client: SPAKE2 challenge response.
+ */
+export interface PairChallengePayload {
+  /** SPAKE2 public message (hex encoded) */
+  spake2Message: string;
+}
+
+/**
+ * Client -> Server: Confirmation MAC.
+ */
+export interface PairConfirmPayload {
+  /** HMAC confirmation (hex encoded) */
+  mac: string;
+}
+
+/**
+ * Server -> Client: Pairing complete with workstation info.
+ */
+export interface PairCompletePayload {
+  /** Server's HMAC confirmation (hex encoded) */
+  mac: string;
+  /** Workstation ID to store */
+  workstationId: string;
+  /** Workstation name for display */
+  workstationName: string;
+}
+
+/**
+ * Server -> Client: Pairing error.
+ */
+export interface PairErrorPayload {
+  code: PairingErrorCode;
+  message: string;
+}
+
+// =============================================================================
 // Transport Types (simplified for socket payloads)
 // =============================================================================
 
@@ -107,24 +191,43 @@ export interface MessagesBatchPayload {
 // =============================================================================
 
 /**
- * Events: Base -> App
+ * Events: Base -> App (pairing events - unauthenticated)
  */
-export interface ServerToClient {
-  "sessions": (payload: SessionsSyncPayload) => void;
-  "projects": (payload: ProjectsSyncPayload) => void;
-  "messages": (payload: RawMessagesBatchPayload, ack: () => void) => void;
+export interface PairingServerToClient {
+  "pair:challenge": (payload: PairChallengePayload) => void;
+  "pair:complete": (payload: PairCompletePayload) => void;
+  "pair:error": (payload: PairErrorPayload) => void;
 }
 
 /**
- * Events: App -> Base
+ * Events: App -> Base (pairing events - unauthenticated)
  */
-export interface ClientToServer {
+export interface PairingClientToServer {
+  "pair:init": (payload: PairInitPayload) => void;
+  "pair:confirm": (payload: PairConfirmPayload) => void;
+}
+
+/**
+ * Events: Base -> App (authenticated, encrypted)
+ */
+export interface ServerToClient extends PairingServerToClient {
+  // Encrypted payloads
+  "sessions": (payload: EncryptedEnvelope) => void;
+  "projects": (payload: EncryptedEnvelope) => void;
+  "messages": (payload: EncryptedEnvelope, ack: () => void) => void;
+}
+
+/**
+ * Events: App -> Base (authenticated, encrypted)
+ */
+export interface ClientToServer extends PairingClientToServer {
+  // init remains unencrypted (cursor sync, no sensitive data)
   init: (payload: InitPayload) => void;
-  // User actions (with ack callbacks)
-  openSession: (payload: OpenSessionPayload, ack: (result: ActionResult) => void) => void;
-  sendPrompt: (payload: SendPromptPayload, ack: (result: ActionResult) => void) => void;
-  stopAgent: (payload: StopAgentPayload, ack: (result: ActionResult) => void) => void;
-  approveToolUse: (payload: ApproveToolUsePayload, ack: (result: ActionResult) => void) => void;
+  // User actions - encrypted payloads with ack
+  openSession: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
+  sendPrompt: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
+  stopAgent: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
+  approveToolUse: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
 }
 
 // =============================================================================

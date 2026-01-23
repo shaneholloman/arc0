@@ -8,12 +8,24 @@ export type {
   // Event maps
   ServerToClient as ServerToClientEvents,
   ClientToServer as ClientToServerEvents,
+  PairingServerToClient,
+  PairingClientToServer,
   // Payloads
   InitPayload,
   SessionsSyncPayload,
   MessagesBatchPayload,
   RawMessageEnvelope,
   RawMessagesBatchPayload,
+  // Pairing payloads
+  PairInitPayload,
+  PairChallengePayload,
+  PairConfirmPayload,
+  PairCompletePayload,
+  PairErrorPayload,
+  PairingErrorCode,
+  // Encryption
+  EncryptedEnvelope,
+  SocketAuth,
   // Data types
   SocketSessionData as SessionData,
   SocketMessage as ClaudeJSONLMessage,
@@ -25,6 +37,7 @@ export type {
   ToolUseBlock,
   ToolResultBlock,
 } from '@arc0/types';
+export { isEncryptedEnvelope } from '@arc0/crypto';
 
 // =============================================================================
 // Mobile-specific Types (not shared with base)

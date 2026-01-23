@@ -19,6 +19,7 @@
     "compile:all": "pnpm compile:darwin-arm64 && pnpm compile:darwin-x64 && pnpm compile:linux-x64 && pnpm compile:linux-arm64"
   },
   "dependencies": {
+    "@arc0/crypto": "workspace:*",
     "@arc0/types": "workspace:*",
     "@clack/core": "^0.4.1",
     "@clack/prompts": "^0.10.0",
