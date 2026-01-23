@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
 import { useIndexes, useRow, useStore } from 'tinybase/ui-react';
 
 import {
@@ -46,6 +47,13 @@ export function useArtifacts(sessionId: string): {
 
   // Load artifacts on demand if not already loaded
   const loadArtifacts = useCallback(async () => {
+    // Skip on web - OPFS persists entire store including artifacts
+    // SQLite-based loading is only needed on native
+    if (Platform.OS === 'web') {
+      setLoadAttempted(true);
+      return;
+    }
+
     if (!store || !indexes || !sessionId || isLoading) return;
 
     // Check if already loaded

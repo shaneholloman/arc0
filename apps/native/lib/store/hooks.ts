@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import {
   useIndexes,
   useRow,
@@ -408,6 +409,12 @@ export function useMessageIds(sessionId: string): UseMessageIdsResult {
   // Load closed session messages on demand
   useEffect(() => {
     async function loadIfNeeded() {
+      // Skip on web - OPFS persists entire store including all messages
+      // SQLite-based loading is only needed on native where we use the open_messages view
+      if (Platform.OS === 'web') {
+        return;
+      }
+
       // Only load if:
       // - Session is closed
       // - No messages yet in store
@@ -443,7 +450,12 @@ export function useMessageIds(sessionId: string): UseMessageIdsResult {
   // Track access for closed sessions that are already in memory (re-navigation)
   // This keeps the LRU order updated when user navigates back to a previously viewed session
   // Only runs if the first effect didn't handle this session (messages were already loaded)
+  // Skip on web - LRU eviction is for native memory management with SQLite
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     // Skip if first effect already handled this session (it records access after loading)
     const wasLoadedByFirstEffect = attemptedLoadRef.current.has(sessionId);
     if (
