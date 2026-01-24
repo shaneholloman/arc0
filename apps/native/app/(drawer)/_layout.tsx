@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Text } from '@/components/ui/text';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { usePathname, useRouter, useGlobalSearchParams } from 'expo-router';
@@ -32,7 +32,7 @@ function useSyncStatus(): SyncStatus {
 
 const DRAWER_WIDTH = 320;
 
-function DrawerContent(props: DrawerContentComponentProps & { isPersistent?: boolean }) {
+function DrawerContent(props: DrawerContentComponentProps & { isPersistent?: boolean, selectedSessionId?: string }) {
   const { theme } = useUniwind();
   const colors = THEME[theme ?? 'light'];
   const insets = useSafeAreaInsets();
@@ -41,7 +41,7 @@ function DrawerContent(props: DrawerContentComponentProps & { isPersistent?: boo
   const [activeTab, setActiveTab] = useState<'sessions' | 'projects'>('sessions');
   const [showCreateSession, setShowCreateSession] = useState(false);
   const router = useRouter();
-  const { id: selectedSessionId } = useGlobalSearchParams<{ id?: string }>();
+  const { selectedSessionId } = props;
 
   // Multi-workstation data
   const workstations = useWorkstations();
@@ -174,6 +174,13 @@ function DrawerContent(props: DrawerContentComponentProps & { isPersistent?: boo
   );
 }
 
+const MemoizedDrawerContent = React.memo(DrawerContent);
+
+const DrawerContentWrapper = (props: DrawerContentComponentProps & { isPersistent?: boolean }) => {
+  const { id: selectedSessionId } = useGlobalSearchParams<{ id?: string }>();
+  return <MemoizedDrawerContent {...props} selectedSessionId={selectedSessionId} />;
+}
+
 export default function DrawerLayout() {
   const { theme } = useUniwind();
   const colors = THEME[theme ?? 'light'];
@@ -184,7 +191,7 @@ export default function DrawerLayout() {
   return (
     <Drawer
       defaultStatus={defaultStatus}
-      drawerContent={DrawerContent}
+      drawerContent={DrawerContentWrapper}
       screenOptions={{
         drawerType: isPersistent ? 'permanent' : 'front',
         drawerStyle: {

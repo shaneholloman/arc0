@@ -2,7 +2,7 @@ import { FileChangeRow } from '@/components/changes';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { FileChangeItem } from '@/lib/types/session';
-import { useGlobalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import {
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
@@ -245,7 +245,7 @@ const MOCK_CHANGES: FileChangeItem[] = [
 ];
 
 export default function ChangesScreen() {
-  const { id } = useGlobalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [allExpanded, setAllExpanded] = useState(false);
   const [overlayDismissed, setOverlayDismissed] = useState(false);

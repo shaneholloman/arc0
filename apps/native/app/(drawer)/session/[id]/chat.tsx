@@ -19,7 +19,7 @@ import { THEME } from '@/lib/theme';
 import type { Message } from '@/lib/types/session';
 import { findLatestPendingTool, isNonInteractiveTool } from '@/lib/utils/tool-state';
 import type { ModelId, PromptMode, AnswerItem, ToolResponse } from '@arc0/types';
-import { useGlobalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { MessageSquareIcon, SendIcon } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, TextInput, View } from 'react-native';
@@ -571,7 +571,7 @@ function ChatContent({ sessionId }: { sessionId: string }) {
 }
 
 export default function ChatScreen() {
-  const { id } = useGlobalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
   if (!id) {
     return (
