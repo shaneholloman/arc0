@@ -205,14 +205,14 @@ export function MessageList({ messages }: MessageListProps) {
   }, [scrollContext?.targetMessageUuid, scrollToMessage, scrollContext]);
 
   // Get a unique key for each message type
-  const getMessageKey = (message: RenderableMessage): string => {
+  const getMessageKey = (message: RenderableMessage, index: number): string => {
     if (isSystemMessage(message) || isUserOrAssistantMessage(message)) {
       return message.uuid;
     }
     if (isQueueOperationMessage(message)) {
       return `queue-${message.timestamp}`;
     }
-    return `unknown-${Math.random()}`;
+    return `unknown-${index}`;
   };
 
   return (

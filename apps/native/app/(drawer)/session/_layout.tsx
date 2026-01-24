@@ -5,7 +5,10 @@ export default function SessionLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
+        freezeOnBlur: true,
       }}
-    />
+    >
+      <Stack.Screen name="[id]" />
+    </Stack>
   );
 }

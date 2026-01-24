@@ -7,7 +7,7 @@ import { useSession } from '@/lib/store/hooks';
 import { useStoreContext } from '@/lib/store/provider';
 import { THEME } from '@/lib/theme';
 import { useResponsiveDrawer } from '@/lib/hooks/useResponsiveDrawer';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useNavigation, useIsFocused } from '@react-navigation/native';
 import { Tabs, useLocalSearchParams } from 'expo-router';
 import { FileCode, GitBranch, Menu, MessageSquare } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
@@ -69,6 +69,7 @@ export default function SessionLayout() {
   const colors = THEME[theme ?? 'light'];
   const { id } = useLocalSearchParams<{ id: string }>();
   const store = useStore();
+  const isFocused = useIsFocused();
 
   // Track active session for real-time artifact updates
   useEffect(() => {
@@ -79,6 +80,11 @@ export default function SessionLayout() {
       };
     }
   }, [store, id]);
+
+  // Unmount children when not focused to free memory
+  if (!isFocused) {
+    return null;
+  }
 
   return (
     <View className="bg-background flex-1">
