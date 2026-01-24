@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-REPO="arc0ai/arc0-proto"
+REPO="amicalhq/arc0"
 INSTALL_DIR="$HOME/.arc0/bin"
 
 # Colors

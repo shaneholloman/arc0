@@ -1,0 +1,73 @@
+name: Release Base
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (semver format, e.g., 0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Validate version format
+        run: |
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "Error: Version must be in semver format (e.g., 0.1.0 or 0.1.0-beta.1)"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.13.0'
+          cache: 'pnpm'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace dependencies
+        run: pnpm --filter "./packages/*" build
+
+      - name: Compile binaries for all platforms
+        run: pnpm --filter @arc0/base compile:all
+
+      - name: Generate checksums
+        working-directory: apps/base/dist
+        run: |
+          for binary in arc0-darwin-arm64 arc0-darwin-x64 arc0-linux-x64 arc0-linux-arm64; do
+            sha256sum "$binary" | sed "s/$binary/arc0/" > "$binary.sha256"
+          done
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: base-v${{ inputs.version }}
+          name: Base v${{ inputs.version }}
+          generate_release_notes: true
+          files: |
+            apps/base/install.sh
+            apps/base/dist/arc0-darwin-arm64
+            apps/base/dist/arc0-darwin-arm64.sha256
+            apps/base/dist/arc0-darwin-x64
+            apps/base/dist/arc0-darwin-x64.sha256
+            apps/base/dist/arc0-linux-x64
+            apps/base/dist/arc0-linux-x64.sha256
+            apps/base/dist/arc0-linux-arm64
+            apps/base/dist/arc0-linux-arm64.sha256
