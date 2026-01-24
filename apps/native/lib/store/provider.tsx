@@ -69,10 +69,18 @@ export function StoreProvider({ children }: StoreProviderProps) {
 
   // Create indexes
   const indexes = useCreateIndexes(store, (store: Store) => {
-    const { createIndexes } = require('tinybase');
+    const { createIndexes, defaultSorter } = require('tinybase');
     const idx = createIndexes(store);
     idx.setIndexDefinition('sessionsByOpen', 'sessions', 'open');
-    idx.setIndexDefinition('messagesBySession', 'messages', 'session_id');
+    // Pre-sorted index by timestamp - avoids O(n log n) sort + n lookups in useMessageIds
+    idx.setIndexDefinition(
+      'messagesBySession',
+      'messages',
+      'session_id', // Slice by session_id
+      'timestamp', // Sort key (4th param)
+      undefined, // No slice sorting (5th param)
+      defaultSorter // CRITICAL: Actually applies the sort (6th param)
+    );
     idx.setIndexDefinition('sessionsByProject', 'sessions', 'project_id');
     idx.setIndexDefinition('artifactsBySession', 'artifacts', 'session_id');
     return idx;

@@ -469,18 +469,8 @@ export function useMessageIds(sessionId: string): UseMessageIdsResult {
     }
   }, [sessionId, session?.open, messageIds.length, store, indexes]);
 
-  // Sort by timestamp
-  const sortedIds = useMemo(() => {
-    if (!store) return [];
-
-    return [...messageIds].sort((a, b) => {
-      const msgA = store.getRow('messages', a) as MessageRow;
-      const msgB = store.getRow('messages', b) as MessageRow;
-      return (msgA.timestamp ?? '').localeCompare(msgB.timestamp ?? '');
-    });
-  }, [messageIds, store]);
-
-  return { ids: sortedIds, isLoadingMessages };
+  // messageIds are already sorted by timestamp via the index's defaultSorter
+  return { ids: messageIds, isLoadingMessages };
 }
 
 /**
