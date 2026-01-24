@@ -83,14 +83,16 @@ export async function pairCommand(): Promise<void> {
 
   // Check if tunnel is configured
   const config = loadConfig();
-  const tunnelUrl =
+  const tunnelHost =
     config?.tunnel?.mode === "arc0" && config.tunnel.subdomain
-      ? `https://${config.tunnel.subdomain}.${TUNNEL_DOMAIN}`
+      ? `${config.tunnel.subdomain}.${TUNNEL_DOMAIN}`
       : null;
+  const tunnelUrl = tunnelHost ? `https://${tunnelHost}` : null;
 
   // Build connect URL if tunnel is configured
-  const connectUrl = tunnelUrl
-    ? `https://arc0.ai/connect?url=${encodeURIComponent(tunnelUrl)}&code=${result.formattedCode.replace(/-/g, "")}`
+  // Note: arc0.ai/connect normalizes URLs, so we omit https:// to keep URL shorter
+  const connectUrl = tunnelHost
+    ? `https://arc0.ai/connect?url=${encodeURIComponent(tunnelHost)}&code=${result.formattedCode.replace(/-/g, "")}`
     : null;
 
   // Generate QR code if connect URL is available
@@ -110,7 +112,7 @@ export async function pairCommand(): Promise<void> {
   // Display the pairing info
   const noteContent = connectUrl
     ? (qrCode ? `${qrCode}\n` : "") +
-      `Visit this URL to connect quickly:\n${pc.bold(pc.magenta(connectUrl))}\n\n` +
+      `Visit this URL to connect quickly:\n${pc.magenta(connectUrl)}\n\n` +
       `Or enter the code manually in the Arc0 app:\n${pc.bold("Add Workstation")} → ${pc.bold("Enter Pairing Code")}\n\n` +
       `${pc.bold("Pairing Code:")} ${pc.cyan(result.formattedCode)}\n` +
       `${pc.bold("Workstation URL:")} ${pc.cyan(tunnelUrl)}`
