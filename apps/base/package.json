@@ -11,12 +11,15 @@
     "cli": "tsx src/cli/index.ts",
     "build": "tsup",
     "type:check": "tsc --noEmit",
+    "generate": "tsx scripts/generate-embedded-files.ts",
+    "prebuild": "pnpm generate",
+    "precompile": "pnpm generate",
     "compile": "bun build --compile --minify src/cli/index.ts --outfile dist/arc0",
     "compile:darwin-arm64": "bun build --compile --minify --target=bun-darwin-arm64 src/cli/index.ts --outfile dist/arc0-darwin-arm64",
     "compile:darwin-x64": "bun build --compile --minify --target=bun-darwin-x64 src/cli/index.ts --outfile dist/arc0-darwin-x64",
     "compile:linux-x64": "bun build --compile --minify --target=bun-linux-x64 src/cli/index.ts --outfile dist/arc0-linux-x64",
     "compile:linux-arm64": "bun build --compile --minify --target=bun-linux-arm64 src/cli/index.ts --outfile dist/arc0-linux-arm64",
-    "compile:all": "pnpm compile:darwin-arm64 && pnpm compile:darwin-x64 && pnpm compile:linux-x64 && pnpm compile:linux-arm64"
+    "compile:all": "pnpm generate && pnpm compile:darwin-arm64 && pnpm compile:darwin-x64 && pnpm compile:linux-x64 && pnpm compile:linux-arm64"
   },
   "dependencies": {
     "@arc0/crypto": "workspace:*",

@@ -1,7 +1,6 @@
 import * as p from "@clack/prompts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   CONFIG_DIR,
   HOOKS_DIR,
@@ -10,12 +9,8 @@ import {
   loadConfig,
   type Arc0Config,
 } from "../../shared/config.js";
+import { CLAUDE_SESSION_SCRIPT } from "../hooks/claude-session.embedded.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Path to the hook script in our source
-const CLAUDE_HOOK_SOURCE = join(__dirname, "../hooks/claude-session.js");
 const CLAUDE_HOOK_DEST = join(HOOKS_DIR, "claude-session.js");
 
 interface ClaudeSettings {
@@ -72,9 +67,8 @@ export async function installClaudeHooks(): Promise<boolean> {
       mkdirSync(SESSIONS_DIR, { recursive: true });
     }
 
-    // Read hook script template and replace placeholder with config dir
-    let hookScript = readFileSync(CLAUDE_HOOK_SOURCE, "utf-8");
-    hookScript = hookScript.replace("__CONFIG_DIR__", CONFIG_DIR);
+    // Use embedded script template and replace placeholder with config dir
+    const hookScript = CLAUDE_SESSION_SCRIPT.replace("__CONFIG_DIR__", CONFIG_DIR);
     writeFileSync(CLAUDE_HOOK_DEST, hookScript, "utf-8");
 
     // Load and update Claude settings
