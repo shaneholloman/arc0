@@ -260,23 +260,21 @@ function ChatContent({ sessionId }: { sessionId: string }) {
     if (pendingTool?.type === 'ExitPlanMode' && planApprovalSelection) {
       // Map the plan approval selection to numeric options (matching Claude CLI):
       // 1 = Yes, clear context and bypass permissions
-      // 2 = Yes, and manually approve edits
-      // 3 = Yes, and bypass permissions
-      // 4 = Yes, manually approve edits
-      // 5 = Feedback (requires text)
-      const planOptionMap: Record<string, 1 | 2 | 3 | 4 | 5> = {
+      // 2 = Yes, and bypass permissions
+      // 3 = Yes, manually approve edits
+      // 4 = Feedback (requires text)
+      const planOptionMap: Record<string, 1 | 2 | 3 | 4> = {
         'clear-bypass': 1,
-        manual: 2,
-        bypass: 3,
-        'keep-manual': 4,
-        feedback: 5,
+        bypass: 2,
+        manual: 3,
+        feedback: 4,
       };
-      const option = planOptionMap[planApprovalSelection] ?? 3;
+      const option = planOptionMap[planApprovalSelection] ?? 2;
 
       const response: ToolResponse = {
         type: 'plan',
         option,
-        text: option === 5 ? inputText.trim() : undefined,
+        text: option === 4 ? inputText.trim() : undefined,
       };
 
       const payload = {

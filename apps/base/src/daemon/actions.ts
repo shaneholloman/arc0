@@ -115,7 +115,7 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
         }
 
         case "plan": {
-          // ExitPlanMode: send option number (1-5)
+          // ExitPlanMode: send option number (1-4)
           const success = await sendToPane(result.target, String(payload.response.option), false);
           if (!success) {
             return {
@@ -124,8 +124,8 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
               message: "Failed to send plan approval to tmux pane",
             };
           }
-          // If option is 5 (feedback), send the feedback text after
-          if (payload.response.option === 5 && payload.response.text) {
+          // If option is 4 (feedback), send the feedback text after
+          if (payload.response.option === 4 && payload.response.text) {
             await new Promise((resolve) => setTimeout(resolve, 100));
             await sendToPane(result.target, payload.response.text, true);
           }

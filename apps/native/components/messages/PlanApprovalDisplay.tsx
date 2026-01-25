@@ -8,7 +8,7 @@ import { Pressable, View } from 'react-native';
 import { Icon } from '@/components/ui/icon';
 
 // Plan approval response types (matching Claude CLI options)
-export type PlanApprovalResponse = 'clear-bypass' | 'manual' | 'bypass' | 'keep-manual' | 'feedback';
+export type PlanApprovalResponse = 'clear-bypass' | 'bypass' | 'manual' | 'feedback';
 
 export const PLAN_APPROVAL_OPTIONS: {
   label: string;
@@ -21,19 +21,14 @@ export const PLAN_APPROVAL_OPTIONS: {
     description: 'Clear conversation context, auto-approve file edits',
   },
   {
-    label: 'Yes, manually approve edits',
-    value: 'manual',
-    description: 'Review each file change before applying',
-  },
-  {
     label: 'Yes, and bypass permissions',
     value: 'bypass',
     description: 'Keep context, auto-approve file edits',
   },
   {
-    label: 'Yes, manual approval',
-    value: 'keep-manual',
-    description: 'Keep context, review each edit',
+    label: 'Yes, manually approve edits',
+    value: 'manual',
+    description: 'Review each file change before applying',
   },
   {
     label: 'Provide feedback',
@@ -55,14 +50,13 @@ function parseApprovalResponse(answer: string | undefined): PlanApprovalResponse
 
   if (answer.includes('User has approved your plan')) {
     // Check more specific patterns first to avoid false matches
-    // Order matters: 'keep-manual' contains 'manual', so check 'keep context' first
     if (answer.includes('clear context') && answer.includes('bypass')) {
       return 'clear-bypass';
     }
-    if (answer.includes('keep context') && answer.includes('manual')) {
-      return 'keep-manual';
+    if (answer.includes('bypass')) {
+      return 'bypass';
     }
-    if (answer.includes('manual approval')) {
+    if (answer.includes('manual')) {
       return 'manual';
     }
     return 'bypass';
@@ -241,15 +235,6 @@ ${planContent || '[Plan content]'}`;
 
     case 'bypass':
       return `User has approved your plan with keep context and bypass permissions. You can now start coding. Start with updating your todo list if applicable
-
-Your plan has been saved to: ~/.claude/plans/current-plan.md
-You can refer back to it if needed during implementation.
-
-## Approved Plan:
-${planContent || '[Plan content]'}`;
-
-    case 'keep-manual':
-      return `User has approved your plan with keep context and manual approval mode. You can now start coding, but each file edit will require explicit approval. Start with updating your todo list if applicable
 
 Your plan has been saved to: ~/.claude/plans/current-plan.md
 You can refer back to it if needed during implementation.

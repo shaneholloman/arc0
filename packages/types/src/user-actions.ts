@@ -19,17 +19,15 @@ export type PromptMode = z.infer<typeof promptModeSchema>;
 /**
  * Plan approval options (matching Claude CLI):
  * 1 = Yes, clear context and bypass permissions
- * 2 = Yes, and manually approve edits
- * 3 = Yes, and bypass permissions
- * 4 = Yes, manually approve edits
- * 5 = Feedback (requires text)
+ * 2 = Yes, and bypass permissions
+ * 3 = Yes, manually approve edits
+ * 4 = Feedback (requires text)
  */
 export const planApprovalOptionSchema = z.union([
   z.literal(1),
   z.literal(2),
   z.literal(3),
   z.literal(4),
-  z.literal(5),
 ]);
 export type PlanApprovalOption = z.infer<typeof planApprovalOptionSchema>;
 
@@ -69,8 +67,8 @@ export const toolResponseToolSchema = z.object({
  */
 export const toolResponsePlanSchema = z.object({
   type: z.literal("plan"),
-  option: planApprovalOptionSchema, // 1, 2, 3, 4, or 5
-  text: z.string().optional(), // Required when option is 5
+  option: planApprovalOptionSchema, // 1, 2, 3, or 4
+  text: z.string().optional(), // Required when option is 4
 });
 
 /**
