@@ -97,6 +97,8 @@ interface WorkstationEditModalProps {
   initialUrl?: string;
   /** Pre-filled pairing code for deep link pairing */
   initialCode?: string;
+  /** Called after successfully adding a new workstation (passes workstation ID for activation) */
+  onWorkstationAdded?: (workstationId: string) => void;
 }
 
 // =============================================================================
@@ -159,6 +161,7 @@ export function WorkstationEditModal({
   onClose,
   initialUrl,
   initialCode,
+  onWorkstationAdded,
 }: WorkstationEditModalProps) {
   const { theme } = useUniwind();
   const colors = THEME[theme ?? 'light'];
@@ -329,6 +332,11 @@ export function WorkstationEditModal({
           authToken,
           encryptionKey
         );
+
+        // Notify parent that workstation was added (for sync success modal)
+        onClose();
+        onWorkstationAdded?.(workstationId);
+        return;
       }
 
       onClose();
@@ -348,6 +356,7 @@ export function WorkstationEditModal({
     updateWorkstation,
     workstationsTable,
     onClose,
+    onWorkstationAdded,
     resetPairing,
   ]);
 

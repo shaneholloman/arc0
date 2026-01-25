@@ -34,11 +34,48 @@ import { ToolApprovalDisplay } from './ToolApprovalDisplay';
 interface ToolCallBlockProps {
   name: string;
   input: Record<string, unknown>;
-  result?: string;
+  result?: string | unknown[] | Record<string, unknown>;
   isError?: boolean;
   metadata?: ToolUseResultMetadata;
   interactive?: boolean; // Enable interactive mode for AskUserQuestion
   isLastMessage?: boolean;
+}
+
+/**
+ * Normalize tool result content to a displayable string.
+ * Claude API can send content as:
+ * - string: "Tool result text"
+ * - array: [{type: "text", text: "Tool result text"}]
+ * - object: {type: "text", text: "Tool result text"}
+ */
+function normalizeResultContent(result: string | unknown[] | Record<string, unknown> | undefined): string | undefined {
+  if (result === undefined) return undefined;
+  if (typeof result === 'string') return result;
+
+  // Handle array of content blocks
+  if (Array.isArray(result)) {
+    return result
+      .map((block) => {
+        if (typeof block === 'string') return block;
+        if (block && typeof block === 'object' && 'text' in block) {
+          return String((block as { text: unknown }).text);
+        }
+        if (block && typeof block === 'object' && 'type' in block) {
+          // For non-text blocks, stringify them
+          return JSON.stringify(block);
+        }
+        return String(block);
+      })
+      .join('\n');
+  }
+
+  // Handle single object with text property
+  if (result && typeof result === 'object' && 'text' in result) {
+    return String((result as { text: unknown }).text);
+  }
+
+  // Fallback: stringify the object
+  return JSON.stringify(result, null, 2);
 }
 
 const TOOL_ICONS: Record<string, LucideIcon> = {
@@ -88,7 +125,9 @@ function getToolDescription(name: string, input: Record<string, unknown>): strin
 export function ToolCallBlock({ name, input, result, isError, metadata, interactive, isLastMessage }: ToolCallBlockProps) {
   const [isOpen, setIsOpen] = useState(isLastMessage ?? false);
 
-  const hasResult = result !== undefined;
+  // Normalize result to string for display
+  const normalizedResult = normalizeResultContent(result);
+  const hasResult = normalizedResult !== undefined;
   const ToolIcon = getToolIcon(name);
   const description = getToolDescription(name, input);
   const hasDiff = metadata?.structuredPatch && metadata.structuredPatch.length > 0;
@@ -138,21 +177,21 @@ export function ToolCallBlock({ name, input, result, isError, metadata, interact
             ) : name === 'AskUserQuestion' && input.questions ? (
               <AskUserQuestionDisplay
                 questions={input.questions as { question: string; header: string; options: { label: string; description: string }[]; multiSelect: boolean }[]}
-                answer={result}
+                answer={normalizedResult}
                 interactive={interactive}
               />
             ) : name === 'ExitPlanMode' ? (
               <PlanApprovalDisplay
                 planFilePath={input.planFilePath as string | undefined}
                 planContent={input.plan as string | undefined}
-                answer={result}
+                answer={normalizedResult}
                 interactive={interactive}
               />
             ) : !CUSTOM_DISPLAY_TOOLS.has(name) ? (
               <ToolApprovalDisplay
                 toolName={name}
                 input={input}
-                answer={result}
+                answer={normalizedResult}
                 isError={isError}
                 interactive={interactive}
               />
@@ -188,7 +227,7 @@ export function ToolCallBlock({ name, input, result, isError, metadata, interact
                   isError ? 'text-destructive' : 'text-muted-foreground'
                 )}
               >
-                {result}
+                {normalizedResult}
               </Text>
             </View>
           )}

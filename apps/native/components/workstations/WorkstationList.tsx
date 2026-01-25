@@ -10,11 +10,12 @@ import { useUniwind } from 'uniwind';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import { useWorkstations, type WorkstationConfig } from '@/lib/store/hooks';
+import { useWorkstations, useOpenSessions, type WorkstationConfig } from '@/lib/store/hooks';
 import { useSocketContext } from '@/lib/socket/provider';
 import type { ConnectionState } from '@/lib/socket/types';
 import { THEME } from '@/lib/theme';
 import { WorkstationEditModal } from './WorkstationEditModal';
+import { SyncSuccessModal } from './SyncSuccessModal';
 
 // =============================================================================
 // Types
@@ -31,6 +32,10 @@ interface WorkstationListProps {
   initialCode?: string;
   /** Called when URL params are consumed */
   onParamsConsumed?: () => void;
+  /** Called when user clicks "View Sessions" after successful pairing */
+  onViewSessions?: () => void;
+  /** Called when user clicks "Create Session" after successful pairing */
+  onCreateSession?: () => void;
 }
 
 // =============================================================================
@@ -133,10 +138,13 @@ export function WorkstationList({
   initialUrl,
   initialCode,
   onParamsConsumed,
+  onViewSessions,
+  onCreateSession,
 }: WorkstationListProps) {
   const { theme } = useUniwind();
   const colors = THEME[theme ?? 'light'];
   const workstations = useWorkstations();
+  const openSessions = useOpenSessions();
   const { allConnectionStates, setActiveWorkstation } = useSocketContext();
 
   // Modal state
@@ -144,6 +152,9 @@ export function WorkstationList({
   const [editingWorkstation, setEditingWorkstation] = useState<WorkstationConfig | null>(null);
   const [modalUrl, setModalUrl] = useState<string | undefined>(undefined);
   const [modalCode, setModalCode] = useState<string | undefined>(undefined);
+
+  // Sync success modal state (shown after adding a new workstation)
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   // Track if params have been consumed
   const paramsConsumedRef = useRef(false);
@@ -189,6 +200,28 @@ export function WorkstationList({
     setModalUrl(undefined);
     setModalCode(undefined);
     onWorkstationChange?.();
+  };
+
+  // Called when a new workstation is successfully added
+  const handleWorkstationAdded = (workstationId: string) => {
+    // Set the newly added workstation as active so useOpenSessions shows its sessions
+    setActiveWorkstation(workstationId);
+    setShowSyncModal(true);
+  };
+
+  // Sync modal action handlers
+  const handleSyncViewSessions = () => {
+    setShowSyncModal(false);
+    onViewSessions?.();
+  };
+
+  const handleSyncCreateSession = () => {
+    setShowSyncModal(false);
+    onCreateSession?.();
+  };
+
+  const handleSyncClose = () => {
+    setShowSyncModal(false);
   };
 
   return (
@@ -240,6 +273,16 @@ export function WorkstationList({
         onClose={handleModalClose}
         initialUrl={modalUrl}
         initialCode={modalCode}
+        onWorkstationAdded={handleWorkstationAdded}
+      />
+
+      {/* Sync Success Modal (shown after adding a new workstation) */}
+      <SyncSuccessModal
+        visible={showSyncModal}
+        hasSessions={openSessions.length > 0}
+        onViewSessions={handleSyncViewSessions}
+        onCreateSession={handleSyncCreateSession}
+        onClose={handleSyncClose}
       />
     </View>
   );

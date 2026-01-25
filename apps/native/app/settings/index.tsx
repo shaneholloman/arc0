@@ -89,6 +89,15 @@ export default function SettingsScreen() {
     { value: 'system', label: 'System', icon: MonitorSmartphoneIcon },
   ];
 
+  // Navigation callbacks for workstation sync success
+  const handleViewSessions = useCallback(() => {
+    router.replace('/');
+  }, [router]);
+
+  const handleCreateSession = useCallback(() => {
+    router.replace('/');
+  }, [router]);
+
   // Reset app handler
   const handleResetApp = useCallback(() => {
     const performReset = async () => {
@@ -206,6 +215,8 @@ export default function SettingsScreen() {
             initialUrl={modalUrl}
             initialCode={modalCode}
             onParamsConsumed={handleParamsConsumed}
+            onViewSessions={handleViewSessions}
+            onCreateSession={handleCreateSession}
           />
         </View>
 
