@@ -5,7 +5,7 @@ import { usePathname, useRouter, useGlobalSearchParams } from 'expo-router';
 import { Drawer } from 'expo-router/drawer';
 import { type DrawerContentComponentProps } from '@react-navigation/drawer';
 import { MessageSquareIcon, PlusIcon, SettingsIcon, XIcon } from 'lucide-react-native';
-import { Image, Pressable, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUniwind } from 'uniwind';
 
@@ -15,7 +15,8 @@ import { THEME } from '@/lib/theme';
 import { CreateSessionModal, SessionList } from '@/components/sessions';
 import { WelcomeEmpty } from '@/components/WelcomeEmpty';
 import { useClosedSessions, useOpenSessions, useWorkstations } from '@/lib/store/hooks';
-import { useConnectionStatus, useBackgroundConnectedCount } from '@/lib/socket/provider';
+import { useConnectionStatus, useBackgroundConnectedCount, useHasAttemptedInitialConnect } from '@/lib/socket/provider';
+import { useStoreContext } from '@/lib/store/provider';
 import type { ConnectionStatus } from '@/lib/socket/types';
 import { useResponsiveDrawer } from '@/lib/hooks/useResponsiveDrawer';
 
@@ -42,6 +43,9 @@ function DrawerContent(
   const [showCreateSession, setShowCreateSession] = useState(false);
   const router = useRouter();
   const { selectedSessionId } = props;
+  const { isReady: storeReady } = useStoreContext();
+  const hasAttemptedInitialConnect = useHasAttemptedInitialConnect();
+  const isInitializing = !storeReady || !hasAttemptedInitialConnect;
 
   // Multi-workstation data
   const workstations = useWorkstations();
@@ -117,8 +121,18 @@ function DrawerContent(
       </View>
 
       <View style={{ backgroundColor: colors.background, flex: 1 }}>
-        {/* Show setup instructions in drawer only on small screens (non-persistent drawer) */}
-        {hasNoWorkstations && !isPersistent ? (
+        {isInitializing ? (
+          <View className="flex-1 items-center justify-center gap-6 p-6">
+            <ActivityIndicator size="large" color={colors.primary} />
+            <View className="gap-2">
+              <Text className="text-center text-xl font-semibold">Connecting</Text>
+              <Text className="text-muted-foreground text-center">
+                Connecting to workstation...
+              </Text>
+            </View>
+          </View>
+        ) : hasNoWorkstations && !isPersistent ? (
+          // Show setup instructions in drawer only on small screens (non-persistent drawer)
           <WelcomeEmpty compact />
         ) : activeTab === 'sessions' ? (
           <SessionList

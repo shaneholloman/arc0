@@ -7,9 +7,9 @@ import { CreateSessionModal } from '@/components/sessions';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { WelcomeEmpty } from '@/components/WelcomeEmpty';
-import { useConnectionState } from '@/lib/socket/provider';
-import { useStoreContext } from '@/lib/store/provider';
+import { useConnectionStatus, useHasAttemptedInitialConnect } from '@/lib/socket/provider';
 import { useWorkstations, useOpenSessions } from '@/lib/store/hooks';
+import { useStoreContext } from '@/lib/store/provider';
 import { THEME } from '@/lib/theme';
 import { useUniwind } from 'uniwind';
 
@@ -19,8 +19,8 @@ export default function HomeScreen() {
   const colors = THEME[theme ?? 'light'];
   const { isReady: storeReady } = useStoreContext();
   const workstations = useWorkstations();
-  const connectionState = useConnectionState();
-  const connectionStatus = connectionState.status;
+  const connectionStatus = useConnectionStatus();
+  const hasAttemptedInitialConnect = useHasAttemptedInitialConnect();
   const openSessions = useOpenSessions();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const hasAutoNavigatedRef = useRef(false);
@@ -41,37 +41,9 @@ export default function HomeScreen() {
     }
   }, [openSessions.length]);
 
-  // Loading: Store not ready yet (prevents flash of incorrect states)
-  if (!storeReady) {
-    return (
-      <View className="bg-background flex-1">
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </View>
-    );
-  }
-
-  // State 4: No workstation configured
-  if (workstations.length === 0) {
-    return (
-      <View className="bg-background flex-1">
-        <WelcomeEmpty />
-      </View>
-    );
-  }
-
-  // Determine if connection has failed:
-  // - 'error' status always means failed
-  // - 'disconnected' with error message or reconnect attempts means failed
-  // - 'disconnected' without either means initial state (before first attempt)
-  const hasConnectionFailed =
-    connectionStatus === 'error' ||
-    (connectionStatus === 'disconnected' &&
-      (!!connectionState.error || (connectionState.reconnectAttempts ?? 0) > 0));
-
-  // State: Connecting or initial disconnected (waiting for first connection attempt)
-  if (connectionStatus === 'connecting' || (connectionStatus === 'disconnected' && !hasConnectionFailed)) {
+  // Loading: Store not ready OR SocketProvider hasn't done initial check yet
+  // This prevents flash of "Add Workstation" before workstations data is fully loaded
+  if (!storeReady || !hasAttemptedInitialConnect) {
     return (
       <View className="bg-background flex-1">
         <View className="flex-1 items-center justify-center gap-6 p-6">
@@ -87,8 +59,34 @@ export default function HomeScreen() {
     );
   }
 
-  // State 3: Daemon not running (workstation exists but connection failed)
-  if (hasConnectionFailed) {
+  // State 4: No workstation configured (only shown after SocketProvider has checked)
+  if (workstations.length === 0) {
+    return (
+      <View className="bg-background flex-1">
+        <WelcomeEmpty />
+      </View>
+    );
+  }
+
+  // State: Socket is actively connecting
+  if (connectionStatus === 'connecting') {
+    return (
+      <View className="bg-background flex-1">
+        <View className="flex-1 items-center justify-center gap-6 p-6">
+          <ActivityIndicator size="large" color={colors.primary} />
+          <View className="gap-2">
+            <Text className="text-center text-xl font-semibold">Connecting</Text>
+            <Text className="text-muted-foreground text-center">
+              Connecting to workstation...
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // State 3: Daemon not running (workstation exists but disconnected/error after connection attempt)
+  if (connectionStatus !== 'connected') {
     return (
       <View className="bg-background flex-1">
         <View className="flex-1 items-center justify-center gap-6 p-6">

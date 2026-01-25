@@ -10,6 +10,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
@@ -66,6 +67,8 @@ interface SocketContextValue {
   activeWorkstationId: string | null;
   /** Get count of background connected workstations (excluding active) */
   backgroundConnectedCount: number;
+  /** Whether the initial connection attempt has been made (useful for UI to distinguish "initializing" from "daemon not running") */
+  hasAttemptedInitialConnect: boolean;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
@@ -107,8 +110,11 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
     workstationsTableRef.current = workstationsTable;
   }, [workstationsTable]);
 
-  // Track if initial connection has been done
-  const hasInitiallyConnectedRef = useRef(false);
+  // Track if initial connection attempt has been made
+  // State is used so UI can react to it and show "Connecting" during initialization
+  // Ref is used to prevent cleanup function from disconnecting on state change re-render
+  const [hasAttemptedInitialConnect, setHasAttemptedInitialConnect] = useState(false);
+  const hasAttemptedRef = useRef(false);
 
   // Get SocketManager instance
   const manager = useMemo(() => getSocketManager(), []);
@@ -133,10 +139,30 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
   // Get connection state for active workstation
   const connectionState: ConnectionState = useMemo(() => {
     if (!activeWorkstationId) {
-      return { status: 'disconnected' };
+      return storeReady ? { status: 'disconnected' } : { status: 'connecting' };
     }
-    return allConnectionStates.get(activeWorkstationId) ?? { status: 'disconnected' };
-  }, [activeWorkstationId, allConnectionStates]);
+
+    const existingState = allConnectionStates.get(activeWorkstationId);
+    if (existingState) {
+      return existingState;
+    }
+
+    const activeRow = workstationsTable[activeWorkstationId];
+    const canConnect = activeRow?.enabled === 1 && Boolean(activeRow.url);
+
+    // Avoid brief "disconnected" flashes before the first connect() is initiated.
+    if (autoConnect && canConnect) {
+      return { status: 'connecting' };
+    }
+
+    return { status: 'disconnected' };
+  }, [
+    activeWorkstationId,
+    allConnectionStates,
+    autoConnect,
+    storeReady,
+    workstationsTable,
+  ]);
 
   // Count background connected workstations (excluding active)
   const backgroundConnectedCount = useMemo(() => {
@@ -521,8 +547,13 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
   // ==========================================================================
 
   // Initial connect when store becomes ready - runs once
+  // Uses ref to track attempt to avoid cleanup running on state change re-render
   useEffect(() => {
-    if (!autoConnect || !storeReady || hasInitiallyConnectedRef.current) return;
+    if (!autoConnect || !storeReady || hasAttemptedRef.current) return;
+
+    // Mark as attempted BEFORE any async work - this lets UI show "Connecting" immediately
+    hasAttemptedRef.current = true;
+    setHasAttemptedInitialConnect(true);
 
     const table = workstationsTableRef.current;
     const workstationIds = Object.keys(table);
@@ -531,7 +562,6 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       return;
     }
 
-    hasInitiallyConnectedRef.current = true;
     console.log('[SocketProvider] Store ready, connecting to workstations...');
 
     // Connect to all enabled workstations
@@ -562,7 +592,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
     const previousIds = workstationIdsRef.current;
 
     // Skip initial render (handled by the initial connect effect above)
-    if (previousIds.length === 0 && !hasInitiallyConnectedRef.current) {
+    if (previousIds.length === 0 && !hasAttemptedRef.current) {
       workstationIdsRef.current = currentIds;
       return;
     }
@@ -645,6 +675,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
     setActiveWorkstation,
     activeWorkstationId,
     backgroundConnectedCount,
+    hasAttemptedInitialConnect,
   };
 
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
@@ -697,4 +728,13 @@ export function useActiveWorkstationId(): string | null {
 export function useBackgroundConnectedCount(): number {
   const { backgroundConnectedCount } = useSocketContext();
   return backgroundConnectedCount;
+}
+
+/**
+ * Check if the initial connection attempt has been made.
+ * Useful for distinguishing "initializing" from "daemon not running".
+ */
+export function useHasAttemptedInitialConnect(): boolean {
+  const { hasAttemptedInitialConnect } = useSocketContext();
+  return hasAttemptedInitialConnect;
 }

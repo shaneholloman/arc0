@@ -236,6 +236,10 @@ export function StoreProvider({ children }: StoreProviderProps) {
           }
         });
 
+        // Wait for next tick to ensure TinyBase hooks see the loaded data
+        // Without this, useTable() may return stale empty data on first render after isReady
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
         setIsReady(true);
       } catch (err) {
         console.error('[StoreProvider] Initialization failed:', err);
