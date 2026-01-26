@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { TerminalIcon, PlusIcon, MessageSquareIcon } from 'lucide-react-native';
 
@@ -28,7 +28,7 @@ export default function HomeScreen() {
   // Auto-navigate to first open session when connected
   const firstSessionId = openSessions[0]?.id;
   useEffect(() => {
-    if (connectionStatus === 'connected' && firstSessionId && !hasAutoNavigatedRef.current) {
+    if (connectionStatus === 'connected' && firstSessionId && !hasAutoNavigatedRef.current && Platform.OS === 'web') {
       hasAutoNavigatedRef.current = true;
       router.replace({ pathname: '/session/[id]/chat', params: { id: firstSessionId } });
     }
@@ -141,7 +141,27 @@ export default function HomeScreen() {
     );
   }
 
-  // State 1: Has open sessions - auto-navigation effect handles redirect
+  // State: Has open sessions on mobile - show selection prompt
+  if (Platform.OS !== 'web') {
+    return (
+      <View className="bg-background flex-1">
+        <View className="flex-1 items-center justify-center gap-6 p-6">
+          <View className="bg-muted rounded-full p-6">
+            <Icon as={MessageSquareIcon} className="text-muted-foreground size-12" />
+          </View>
+
+          <View className="gap-2">
+            <Text className="text-center text-xl font-semibold">Select a Session</Text>
+            <Text className="text-muted-foreground text-center">
+              Choose a session from the sidebar to continue
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // State 1: Has open sessions on web - auto-navigation effect handles redirect
   // Return null to prevent flash while navigation is in-flight
   return null;
 }
