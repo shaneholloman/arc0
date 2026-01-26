@@ -17,12 +17,16 @@ function DiffLine({ line, lineNumber }: DiffLineProps) {
   const isDeletion = line.startsWith('-');
   const isHunk = line.startsWith('@@');
 
+  // Get the prefix (+, -, or space) and the content separately
+  const prefix = line[0] || '';
+  const content = line.slice(1);
+
   return (
     <View
       className={cn(
         'flex-row',
-        isAddition && 'bg-green-500/10',
-        isDeletion && 'bg-red-500/10',
+        isAddition && 'bg-green-900/30',
+        isDeletion && 'bg-red-900/30',
         isHunk && 'bg-accent/20'
       )}
     >
@@ -33,14 +37,23 @@ function DiffLine({ line, lineNumber }: DiffLineProps) {
       )}
       <Text
         className={cn(
-          'flex-1 px-2 font-mono text-xs',
-          isAddition && 'text-green-600',
-          isDeletion && 'text-red-600',
+          'w-5 font-mono text-xs',
+          isAddition && 'text-green-500',
+          isDeletion && 'text-red-500',
           isHunk && 'text-accent-foreground',
           !isAddition && !isDeletion && !isHunk && 'text-muted-foreground'
         )}
       >
-        {line}
+        {prefix}
+      </Text>
+      <Text
+        className={cn(
+          'flex-1 pr-2 font-mono text-xs',
+          isHunk && 'text-accent-foreground',
+          !isHunk && 'text-foreground'
+        )}
+      >
+        {isHunk ? line : content}
       </Text>
     </View>
   );

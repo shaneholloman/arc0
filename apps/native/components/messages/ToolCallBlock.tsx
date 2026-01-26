@@ -6,8 +6,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import type { ToolUseResultMetadata } from '@/lib/types/session';
+import type { StructuredPatch, ToolUseResultMetadata } from '@/lib/types/session';
 import { cn } from '@/lib/utils';
+import { structuredPatch } from 'diff';
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -23,7 +24,7 @@ import {
   WrenchIcon,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { AskUserQuestionDisplay } from './AskUserQuestionDisplay';
 import { DiffView } from './DiffView';
@@ -78,6 +79,32 @@ function normalizeResultContent(result: string | unknown[] | Record<string, unkn
   return JSON.stringify(result, null, 2);
 }
 
+/**
+ * Compute structured patches from Edit tool input when metadata doesn't have them.
+ * Uses the diff package to compute a proper unified diff with context lines.
+ */
+function computeEditPatches(input: Record<string, unknown>): StructuredPatch[] | null {
+  const oldStr = input.old_string as string | undefined;
+  const newStr = input.new_string as string | undefined;
+
+  if (!oldStr && !newStr) return null;
+  if (oldStr === newStr) return null;
+
+  // Use diff library to compute proper unified diff
+  const patch = structuredPatch('', '', oldStr ?? '', newStr ?? '', '', '', { context: 3 });
+
+  if (!patch.hunks || patch.hunks.length === 0) return null;
+
+  // Convert diff library's hunks to our StructuredPatch format
+  return patch.hunks.map(hunk => ({
+    oldStart: hunk.oldStart,
+    oldLines: hunk.oldLines,
+    newStart: hunk.newStart,
+    newLines: hunk.newLines,
+    lines: hunk.lines,
+  }));
+}
+
 const TOOL_ICONS: Record<string, LucideIcon> = {
   Bash: TerminalIcon,
   Read: FileIcon,
@@ -130,7 +157,16 @@ export function ToolCallBlock({ name, input, result, isError, metadata, interact
   const hasResult = normalizedResult !== undefined;
   const ToolIcon = getToolIcon(name);
   const description = getToolDescription(name, input);
-  const hasDiff = metadata?.structuredPatch && metadata.structuredPatch.length > 0;
+  // Compute patches from Edit tool input when metadata doesn't have structuredPatch
+  const computedPatches = useMemo(() => {
+    const hasDiff = metadata?.structuredPatch && metadata.structuredPatch.length > 0;
+    if (hasDiff) return null; // metadata already has patches
+    if (name !== 'Edit') return null;
+    return computeEditPatches(input);
+  }, [name, input, metadata]);
+
+  const effectivePatches = metadata?.structuredPatch ?? computedPatches;
+  const showDiff = effectivePatches && effectivePatches.length > 0;
 
   const iconColor = hasResult
     ? isError
@@ -203,15 +239,15 @@ export function ToolCallBlock({ name, input, result, isError, metadata, interact
           </View>
 
           {/* Diff View for Edit operations */}
-          {hasDiff && metadata?.structuredPatch && (
+          {showDiff && effectivePatches && (
             <View className="border-t border-border pt-2">
               <Text className="mb-1 text-xs font-medium text-muted-foreground">Changes</Text>
-              <DiffView patches={metadata.structuredPatch} />
+              <DiffView patches={effectivePatches} />
             </View>
           )}
 
           {/* Result */}
-          {hasResult && !hasDiff && (
+          {hasResult && !showDiff && (
             <View className="border-t border-border pt-2">
               <Text
                 className={cn(
