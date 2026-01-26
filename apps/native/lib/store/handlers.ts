@@ -20,7 +20,7 @@ import {
   extractResolvedToolUseIds,
   extractSessionNameUpdates,
   getLastMessageInfo,
-  transformRawBatch,
+  transformRawBatchWithOutputs,
   type SessionNameUpdate,
 } from '../socket/transformer';
 import { extractArtifactsFromRawBatch } from '../socket/artifact-extractor';
@@ -266,13 +266,19 @@ export async function handleMessagesBatch(
   }
 
   // Transform raw envelopes to processed messages (filters non-message types)
-  const processedMessages = transformRawBatch(rawEnvelopes);
+  // Returns:
+  // - merged: commands with stdout/stderr already merged (for TinyBase)
+  // - outputs: all output messages (for SQLite persistence)
+  // - orphanedOutputs: outputs whose parent wasn't in this batch (for late TinyBase merge)
+  const { merged: processedMessages, outputs: outputMessages, orphanedOutputs } = transformRawBatchWithOutputs(rawEnvelopes);
 
   debugLog('messages', 'transformed batch', {
     batchId,
     inputCount: rawEnvelopes.length,
     outputCount: processedMessages.length,
-    filtered: rawEnvelopes.length - processedMessages.length,
+    outputsCount: outputMessages.length,
+    orphanedCount: orphanedOutputs.length,
+    filtered: rawEnvelopes.length - processedMessages.length - outputMessages.length,
     messageTypes: processedMessages.map((m) => m.type),
   });
 
@@ -280,7 +286,7 @@ export async function handleMessagesBatch(
   // without any user/assistant messages
   updatePendingPermissions(store, rawEnvelopes);
 
-  if (processedMessages.length === 0) {
+  if (processedMessages.length === 0 && outputMessages.length === 0) {
     // All lines were non-message types (summary, file-history-snapshot, permission_request, etc.)
     return { lastMessageId: '', lastMessageTs: '' };
   }
@@ -314,13 +320,17 @@ export async function handleMessagesBatch(
   const existingCounts = getExistingMessageCountsFromRaw(store, rawEnvelopes);
 
   // 1. Write to SQLite `messages` TABLE (source of truth) - native only
+  // Include both merged messages AND output messages for closed-session reload merging
   const db = getDbInstance();
   if (db) {
-    await writeProcessedMessagesToSQLite(processedMessages);
+    const allMessagesForSQLite = [...processedMessages, ...outputMessages];
+    await writeProcessedMessagesToSQLite(allMessagesForSQLite);
     debugLog('messages', 'saved to SQLite', {
       batchId,
-      count: processedMessages.length,
-      messageIds: processedMessages.map((m) => m.id),
+      count: allMessagesForSQLite.length,
+      mergedCount: processedMessages.length,
+      outputsCount: outputMessages.length,
+      messageIds: allMessagesForSQLite.map((m) => m.id),
     });
   }
 
@@ -331,6 +341,18 @@ export async function handleMessagesBatch(
     count: processedMessages.length,
     sessionIds: [...new Set(processedMessages.map((m) => m.session_id))],
   });
+
+  // 2b. Merge late-arriving (orphaned) outputs into existing command rows in TinyBase
+  // This handles outputs that arrive in a different batch than their parent command
+  // NOTE: We only merge orphanedOutputs, NOT all outputMessages, to avoid duplicating
+  // outputs that were already merged in-batch by transformRawBatchWithOutputs
+  mergeOutputsIntoExistingCommands(store, orphanedOutputs);
+  if (orphanedOutputs.length > 0) {
+    debugLog('messages', 'merged orphaned outputs into existing commands', {
+      batchId,
+      orphanedCount: orphanedOutputs.length,
+    });
+  }
 
   // 3. Update session metadata
   const metadataUpdates = calculateSessionMetadataFromRaw(rawEnvelopes, existingCounts);
@@ -427,7 +449,7 @@ function writeProcessedMessagesToStore(store: Store, messages: ProcessedMessage[
   store.transaction(() => {
     for (const msg of messages) {
       // Note: 'id' is NOT included as cell data - it's the row ID (rowIdColumnName: 'id')
-      store.setRow('messages', msg.id, {
+      const row: Record<string, string | number> = {
         session_id: msg.session_id,
         parent_id: msg.parent_id,
         type: msg.type,
@@ -436,7 +458,79 @@ function writeProcessedMessagesToStore(store: Store, messages: ProcessedMessage[
         stop_reason: msg.stop_reason,
         usage: msg.usage,
         // raw_json excluded for memory optimization
-      });
+      };
+
+      // Add local command fields if present
+      if (msg.subtype) {
+        row.subtype = msg.subtype;
+      }
+      if (msg.command_name) {
+        row.command_name = msg.command_name;
+      }
+      if (msg.command_args) {
+        row.command_args = msg.command_args;
+      }
+      if (msg.stdout !== undefined) {
+        row.stdout = msg.stdout;
+      }
+      if (msg.stderr !== undefined) {
+        row.stderr = msg.stderr;
+      }
+
+      store.setRow('messages', msg.id, row);
+    }
+  });
+}
+
+/**
+ * Merge late-arriving output messages into existing command rows in TinyBase.
+ * This handles outputs that arrive in a different batch than their parent command.
+ * Uses append logic to preserve multiple outputs for the same command.
+ */
+function mergeOutputsIntoExistingCommands(store: Store, outputs: ProcessedMessage[]): void {
+  if (outputs.length === 0) return;
+
+  store.transaction(() => {
+    for (const output of outputs) {
+      const parentId = output.parent_id;
+      if (!parentId) continue;
+
+      // Check if parent command exists in TinyBase
+      const parentRow = store.getRow('messages', parentId);
+      if (!parentRow || Object.keys(parentRow).length === 0) {
+        // Parent not in TinyBase yet - will be merged when session reloads from SQLite
+        continue;
+      }
+
+      // Only merge if parent is a local_command
+      if (parentRow.subtype !== 'local_command') {
+        continue;
+      }
+
+      // Build partial update with append logic
+      const partial: Record<string, string> = {};
+
+      if (output.stdout) {
+        const existingStdout = parentRow.stdout as string | undefined;
+        if (existingStdout) {
+          partial.stdout = existingStdout + '\n' + output.stdout;
+        } else {
+          partial.stdout = output.stdout;
+        }
+      }
+
+      if (output.stderr) {
+        const existingStderr = parentRow.stderr as string | undefined;
+        if (existingStderr) {
+          partial.stderr = existingStderr + '\n' + output.stderr;
+        } else {
+          partial.stderr = output.stderr;
+        }
+      }
+
+      if (Object.keys(partial).length > 0) {
+        store.setPartialRow('messages', parentId, partial);
+      }
     }
   });
 }

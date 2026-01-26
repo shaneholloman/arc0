@@ -15,7 +15,7 @@ import {
 import { useUserActions } from '@/lib/contexts/UserActionsContext';
 import { useMessages, useSession } from '@/lib/store/hooks';
 import { useStoreContext } from '@/lib/store/provider';
-import type { Message, PendingPermission } from '@/lib/types/session';
+import type { Message, PendingPermission, RenderableMessage } from '@/lib/types/session';
 import { findLatestPendingTool, isNonInteractiveTool } from '@/lib/utils/tool-state';
 import type { ModelId, PromptMode, AnswerItem, ToolResponse } from '@arc0/types';
 import { useGlobalSearchParams, useLocalSearchParams } from 'expo-router';
@@ -123,6 +123,11 @@ function getLastMessageInfo(messages: Message[]): { id: string; ts: number } | n
   };
 }
 
+// Type guard to filter only user/assistant messages (excludes system, queue-operation)
+function isUserOrAssistantMessage(msg: RenderableMessage): msg is Message {
+  return msg.type === 'user' || msg.type === 'assistant';
+}
+
 function ChatContent({ sessionId }: { sessionId: string }) {
   const { isReady } = useStoreContext();
   const { messages, isLoadingMessages } = useMessages(sessionId);
@@ -149,14 +154,20 @@ function ChatContent({ sessionId }: { sessionId: string }) {
     setIsSubmitting,
   } = pendingQuestionContext;
 
+  // Filter to only user/assistant messages for functions that need Message[] type
+  const userAssistantMessages = useMemo(
+    () => messages.filter(isUserOrAssistantMessage),
+    [messages]
+  );
+
   // Detect pending interactive tool from messages and explicit permission requests
   const pendingTool = useMemo(() => {
-    if (messages.length === 0) return null;
-    return findPendingInteractiveTool(messages, session?.pendingPermission ?? null);
-  }, [messages, session?.pendingPermission]);
+    if (userAssistantMessages.length === 0) return null;
+    return findPendingInteractiveTool(userAssistantMessages, session?.pendingPermission ?? null);
+  }, [userAssistantMessages, session?.pendingPermission]);
 
   // Detect if agent is running
-  const agentRunning = useMemo(() => isAgentRunning(messages), [messages]);
+  const agentRunning = useMemo(() => isAgentRunning(userAssistantMessages), [userAssistantMessages]);
 
   // Update context when pending tool changes
   useEffect(() => {
@@ -255,7 +266,7 @@ function ChatContent({ sessionId }: { sessionId: string }) {
 
   // Handle stop button press
   const handleStop = async () => {
-    const lastMsg = getLastMessageInfo(messages);
+    const lastMsg = getLastMessageInfo(userAssistantMessages);
 
     const payload = {
       sessionId,
@@ -273,7 +284,7 @@ function ChatContent({ sessionId }: { sessionId: string }) {
 
   // Handle submit
   const handleSubmit = async () => {
-    const lastMsg = getLastMessageInfo(messages);
+    const lastMsg = getLastMessageInfo(userAssistantMessages);
 
     setIsSubmitting(true);
 

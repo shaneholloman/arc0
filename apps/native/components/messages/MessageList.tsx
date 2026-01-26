@@ -6,9 +6,10 @@ import type {
   SystemMessage as SystemMessageType,
 } from '@/lib/types/session';
 import { useScrollToMessageSafe } from '@/lib/contexts/ScrollToMessageContext';
+import { useMessage } from '@/lib/store/hooks';
 import { deriveToolState, isNonInteractiveTool, type ToolResultWithMetadata } from '@/lib/utils/tool-state';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View } from 'react-native';
 import { AssistantMessage } from './AssistantMessage';
 import { ImageBlockDisplay } from './ImageBlockDisplay';
@@ -81,12 +82,36 @@ function isQueueOperationMessage(msg: RenderableMessage): msg is QueueOperationM
 }
 
 interface RenderableItemProps {
-  message: RenderableMessage;
+  /** Message ID for TinyBase lookup (user/assistant/system messages) */
+  messageId?: string;
+  /** Direct message object for non-TinyBase messages (queue-operation) */
+  message?: RenderableMessage;
   toolResults: Map<string, ToolResultWithMetadata>;
   isLastMessage?: boolean;
 }
 
-function RenderableItem({ message, toolResults, isLastMessage }: RenderableItemProps) {
+/**
+ * Renders a single message item.
+ * Uses useMessage(id) for TinyBase-stored messages to get reactive updates.
+ * This ensures stdout/stderr updates from late-arriving outputs trigger re-renders.
+ */
+const RenderableItem = React.memo(function RenderableItem({
+  messageId,
+  message: directMessage,
+  toolResults,
+  isLastMessage,
+}: RenderableItemProps) {
+  // For TinyBase messages, fetch reactively via useMessage
+  // This ensures updates to stdout/stderr trigger re-renders
+  const reactiveMessage = useMessage(messageId ?? '');
+
+  // Use reactive message if we have an ID, otherwise use direct message
+  const message = messageId ? reactiveMessage : directMessage;
+
+  if (!message) {
+    return null;
+  }
+
   // Handle system messages
   if (isSystemMessage(message)) {
     return (
@@ -133,7 +158,7 @@ function RenderableItem({ message, toolResults, isLastMessage }: RenderableItemP
   }
 
   return null;
-}
+});
 
 function ItemSeparator() {
   return <View className="h-2" />;
@@ -156,6 +181,8 @@ export function MessageList({ messages }: MessageListProps) {
   const visibleMessages = useMemo(() => {
     return messages.filter((message) => {
       if (isSystemMessage(message)) {
+        // undefined subtype = custom-title or other non-renderable system message
+        if (!message.subtype) return false;
         // Only show certain system message subtypes
         return ['api_error', 'compact_boundary', 'local_command'].includes(message.subtype);
       }
@@ -213,17 +240,44 @@ export function MessageList({ messages }: MessageListProps) {
     return `unknown-${index}`;
   };
 
+  // Render function that passes messageId for TinyBase messages (reactive)
+  // or direct message for queue-operation messages (not in TinyBase)
+  const renderItem = useCallback(
+    ({ item, index }: { item: RenderableMessage; index: number }) => {
+      const isLast = index === visibleMessages.length - 1;
+
+      // Queue operation messages are not stored in TinyBase, pass directly
+      if (isQueueOperationMessage(item)) {
+        return (
+          <RenderableItem
+            message={item}
+            toolResults={toolResults}
+            isLastMessage={isLast}
+          />
+        );
+      }
+
+      // User/assistant/system messages are in TinyBase, pass ID for reactive updates
+      if (isSystemMessage(item) || isUserOrAssistantMessage(item)) {
+        return (
+          <RenderableItem
+            messageId={item.uuid}
+            toolResults={toolResults}
+            isLastMessage={isLast}
+          />
+        );
+      }
+
+      return null;
+    },
+    [visibleMessages.length, toolResults]
+  );
+
   return (
     <FlashList
       ref={listRef}
       data={visibleMessages}
-      renderItem={({ item, index }) => (
-        <RenderableItem
-          message={item}
-          toolResults={toolResults}
-          isLastMessage={index === visibleMessages.length - 1}
-        />
-      )}
+      renderItem={renderItem}
       keyExtractor={getMessageKey}
       ItemSeparatorComponent={ItemSeparator}
       contentContainerStyle={{ paddingVertical: 8 }}

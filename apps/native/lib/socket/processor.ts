@@ -23,6 +23,12 @@ export interface ProcessedMessage {
   stop_reason: string;
   usage: string; // JSON string of {inputTokens, outputTokens}
   raw_json: string; // Full original message as JSON string
+  // For system messages with subtype 'local_command'
+  subtype?: 'local_command';
+  command_name?: string;
+  command_args?: string;
+  stdout?: string;
+  stderr?: string;
 }
 
 /**

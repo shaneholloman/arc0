@@ -145,13 +145,14 @@ export interface CompactMetadata {
 }
 
 // System message (different from user/assistant messages)
+// Note: subtype is optional - custom-title and other system messages may not have one
 export interface SystemMessage {
   uuid: string;
   parentUuid: string | null;
   sessionId: string;
   timestamp: string;
   type: 'system';
-  subtype: SystemMessageSubtype;
+  subtype?: SystemMessageSubtype;
   level?: 'info' | 'warning' | 'error' | 'suggestion';
   content?: string;
   // For api_error
@@ -168,6 +169,11 @@ export interface SystemMessage {
   hookErrors?: string[];
   // For turn_duration
   durationMs?: number;
+  // For local_command
+  commandName?: string;
+  commandArgs?: string;
+  stdout?: string;
+  stderr?: string;
 }
 
 // Queue operation for background tasks

@@ -55,14 +55,41 @@ function CompactBoundaryDisplay({ message }: { message: SystemMessageType }) {
 }
 
 function LocalCommandDisplay({ message }: { message: SystemMessageType }) {
-  // Parse command from content like "<command-name>/status</command-name>"
-  const commandMatch = message.content?.match(/<command-name>([^<]+)<\/command-name>/);
-  const command = commandMatch?.[1] || message.content || '';
+  // Use the new commandName/commandArgs fields if available, fallback to parsing content
+  const commandName = message.commandName || (() => {
+    const match = message.content?.match(/<command-name>([^<]+)<\/command-name>/);
+    return match?.[1] || message.content || '';
+  })();
+
+  const commandArgs = message.commandArgs;
+  const stdout = message.stdout;
+  const stderr = message.stderr;
+
+  const hasOutput = stdout || stderr;
 
   return (
-    <View className="flex-row items-center gap-2 rounded-sm border border-border bg-muted/50 px-3 py-2">
-      <Icon as={TerminalIcon} className="size-4 text-muted-foreground" />
-      <Text className="text-sm font-mono text-muted-foreground">{command}</Text>
+    <View className="rounded-sm border border-border bg-muted/50 px-3 py-2">
+      <View className="flex-row items-center gap-2">
+        <Icon as={TerminalIcon} className="size-4 text-muted-foreground" />
+        <Text className="text-sm font-mono font-medium text-foreground">{commandName}</Text>
+        {commandArgs ? (
+          <Text className="text-sm font-mono text-muted-foreground">{commandArgs}</Text>
+        ) : null}
+      </View>
+      {hasOutput ? (
+        <View className="mt-2 border-t border-border pt-2">
+          {stdout ? (
+            <Text className="text-xs font-mono text-muted-foreground whitespace-pre-wrap">
+              {stdout}
+            </Text>
+          ) : null}
+          {stderr ? (
+            <Text className="text-xs font-mono text-destructive whitespace-pre-wrap">
+              {stderr}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }

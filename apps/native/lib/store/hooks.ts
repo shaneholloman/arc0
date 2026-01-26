@@ -14,7 +14,15 @@ import {
   useValue,
 } from 'tinybase/ui-react';
 
-import type { ContentBlock, Message, PendingPermission, Session } from '@/lib/types/session';
+import type {
+  ContentBlock,
+  Message,
+  PendingPermission,
+  RenderableMessage,
+  Session,
+  SystemMessage as SystemMessageType,
+  SystemMessageSubtype,
+} from '@/lib/types/session';
 import type { SessionStatus, StatusInfo } from '@/lib/types/session-status';
 import { useUserActionsSafe } from '@/lib/contexts/UserActionsContext';
 import { loadClosedSessionMessages, recordClosedSessionAccess } from './closed-sessions';
@@ -58,6 +66,12 @@ interface MessageRow {
   content?: string; // JSON string
   stop_reason?: string;
   usage?: string; // JSON string
+  // System message fields (for type === 'system')
+  subtype?: string;
+  command_name?: string;
+  command_args?: string;
+  stdout?: string;
+  stderr?: string;
 }
 
 /**
@@ -110,6 +124,26 @@ function transformSession(id: string, row: SessionRow, projectPath?: string): Se
 }
 
 /**
+ * Transform TinyBase message row to UI SystemMessage type.
+ * Note: subtype is optional - custom-title and other system messages may not have one.
+ */
+function transformSystemMessage(id: string, row: MessageRow): SystemMessageType {
+  return {
+    uuid: id,
+    parentUuid: row.parent_id || null,
+    sessionId: row.session_id ?? '',
+    timestamp: row.timestamp ?? new Date().toISOString(),
+    type: 'system',
+    subtype: row.subtype as SystemMessageSubtype | undefined,
+    // Local command fields
+    commandName: row.command_name,
+    commandArgs: row.command_args,
+    stdout: row.stdout,
+    stderr: row.stderr,
+  };
+}
+
+/**
  * Transform TinyBase message row to UI Message type.
  * Parses JSON strings for content and usage.
  */
@@ -144,6 +178,22 @@ function transformMessage(id: string, row: MessageRow): Message {
     stopReason: row.stop_reason as 'end_turn' | 'tool_use' | null | undefined,
     usage,
   };
+}
+
+/**
+ * Transform TinyBase message row to the appropriate UI type.
+ * Returns Message for user/assistant, SystemMessage for system.
+ */
+function transformRenderableMessage(id: string, row: MessageRow): RenderableMessage | null {
+  if (!row || Object.keys(row).length === 0) {
+    return null;
+  }
+
+  if (row.type === 'system') {
+    return transformSystemMessage(id, row);
+  }
+
+  return transformMessage(id, row);
 }
 
 // =============================================================================
@@ -488,18 +538,14 @@ export function useMessageIds(sessionId: string): UseMessageIdsResult {
 
 /**
  * Get a single message by ID.
- * Transforms from TinyBase format to UI Message type.
+ * Transforms from TinyBase format to UI RenderableMessage type.
+ * Returns Message for user/assistant, SystemMessage for system.
  */
-export function useMessage(messageId: string): Message | null {
+export function useMessage(messageId: string): RenderableMessage | null {
   const row = useRow('messages', messageId) as MessageRow;
 
   return useMemo(() => {
-    // Check if the row exists (has any data)
-    if (!row || Object.keys(row).length === 0) {
-      return null;
-    }
-
-    return transformMessage(messageId, row);
+    return transformRenderableMessage(messageId, row);
   }, [messageId, row]);
 }
 
@@ -507,8 +553,8 @@ export function useMessage(messageId: string): Message | null {
  * Result type for useMessages hook.
  */
 interface UseMessagesResult {
-  /** Messages for the session */
-  messages: Message[];
+  /** Messages for the session (includes Message, SystemMessage) */
+  messages: RenderableMessage[];
   /** True when loading closed session messages from SQLite */
   isLoadingMessages: boolean;
 }
@@ -527,10 +573,12 @@ export function useMessages(sessionId: string): UseMessagesResult {
   const messages = useMemo(() => {
     if (!store) return [];
 
-    return messageIds.map((id) => {
-      const row = store.getRow('messages', id) as MessageRow;
-      return transformMessage(id, row);
-    });
+    return messageIds
+      .map((id) => {
+        const row = store.getRow('messages', id) as MessageRow;
+        return transformRenderableMessage(id, row);
+      })
+      .filter((msg): msg is RenderableMessage => msg !== null);
   }, [messageIds, store]);
 
   return { messages, isLoadingMessages };

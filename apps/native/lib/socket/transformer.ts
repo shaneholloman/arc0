@@ -65,6 +65,63 @@ function isMessageLine(payload: unknown): payload is RawMessageLine {
 }
 
 /**
+ * Raw JSONL line with isMeta flag (caveat messages to skip).
+ */
+interface RawMetaLine {
+  isMeta: true;
+  type: 'user';
+  uuid: string;
+}
+
+/**
+ * Check if raw payload is a meta line that should be skipped.
+ */
+function isMetaLine(payload: unknown): payload is RawMetaLine {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return p.isMeta === true;
+}
+
+/**
+ * Parse local command from XML content.
+ * Returns command name, message, and args if this is a command message.
+ */
+function parseLocalCommand(
+  content: string
+): { commandName: string; commandMessage: string; commandArgs: string } | null {
+  const nameMatch = content.match(/<command-name>([^<]+)<\/command-name>/);
+  const argsMatch = content.match(/<command-args>([^<]*)<\/command-args>/);
+  if (!nameMatch) return null;
+  return {
+    commandName: nameMatch[1],
+    commandMessage: nameMatch[1].replace('/', ''),
+    commandArgs: argsMatch?.[1] || '',
+  };
+}
+
+/**
+ * Parse command output from XML content.
+ * Returns stdout and/or stderr if this is an output message.
+ */
+function parseCommandOutput(content: string): { stdout?: string; stderr?: string } | null {
+  const stdoutMatch = content.match(/<local-command-stdout>([\s\S]*?)<\/local-command-stdout>/);
+  const stderrMatch = content.match(/<local-command-stderr>([\s\S]*?)<\/local-command-stderr>/);
+  if (!stdoutMatch && !stderrMatch) return null;
+  return {
+    stdout: stdoutMatch?.[1],
+    stderr: stderrMatch?.[1],
+  };
+}
+
+/**
+ * Strip ANSI escape sequences from text for clean display.
+ */
+function stripAnsi(text: string): string {
+  // eslint-disable-next-line no-control-regex
+  return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
+}
+
+/**
  * Check if raw payload is a custom-title line.
  */
 function isCustomTitleLine(payload: unknown): payload is CustomTitleLine {
@@ -170,12 +227,40 @@ function transformContent(content: unknown[] | string): ContentBlock[] {
 // =============================================================================
 
 /**
+ * Result type that includes metadata for batch processing.
+ * Used internally to track command/output relationships.
+ */
+interface TransformResult {
+  message: ProcessedMessage;
+  isLocalCommand?: boolean;
+  isCommandOutput?: boolean;
+  commandOutput?: { stdout?: string; stderr?: string };
+}
+
+/**
  * Transform a raw JSONL line to ProcessedMessage format.
- * Returns null for non-message lines (summary, file-history-snapshot, etc.)
+ * Returns null for non-message lines (summary, file-history-snapshot, meta, etc.)
  */
 export function transformRawLine(envelope: RawMessageEnvelope): ProcessedMessage | null {
+  const result = transformRawLineInternal(envelope);
+  return result?.message ?? null;
+}
+
+/**
+ * Internal transform that returns additional metadata for batch processing.
+ */
+function transformRawLineInternal(envelope: RawMessageEnvelope): TransformResult | null {
   const raw = envelope.payload;
   const rawType = (raw as { type?: string })?.type ?? 'unknown';
+
+  // Skip meta lines (caveat messages)
+  if (isMetaLine(raw)) {
+    debugLog('transform', 'skipped meta line', {
+      sessionId: envelope.sessionId,
+      uuid: raw.uuid,
+    });
+    return null;
+  }
 
   // Handle custom-title messages (session rename)
   if (isCustomTitleLine(raw)) {
@@ -190,15 +275,17 @@ export function transformRawLine(envelope: RawMessageEnvelope): ProcessedMessage
     });
 
     return {
-      id: generatedId,
-      session_id: envelope.sessionId,
-      parent_id: '',
-      type: 'system',
-      timestamp: new Date().toISOString(),
-      content: JSON.stringify(content),
-      stop_reason: '',
-      usage: JSON.stringify({}),
-      raw_json: JSON.stringify(envelope.payload),
+      message: {
+        id: generatedId,
+        session_id: envelope.sessionId,
+        parent_id: '',
+        type: 'system',
+        timestamp: new Date().toISOString(),
+        content: JSON.stringify(content),
+        stop_reason: '',
+        usage: JSON.stringify({}),
+        raw_json: JSON.stringify(envelope.payload),
+      },
     };
   }
 
@@ -209,6 +296,77 @@ export function transformRawLine(envelope: RawMessageEnvelope): ProcessedMessage
       rawType,
     });
     return null;
+  }
+
+  // Get text content for command detection
+  const textContent =
+    typeof raw.message.content === 'string'
+      ? raw.message.content
+      : Array.isArray(raw.message.content)
+        ? raw.message.content
+            .filter((b): b is { type: 'text'; text: string } => (b as { type?: string })?.type === 'text')
+            .map((b) => b.text)
+            .join('\n')
+        : '';
+
+  // Check if this is a local command message
+  const commandInfo = parseLocalCommand(textContent);
+  if (commandInfo) {
+    debugLog('transform', 'local command detected', {
+      sessionId: envelope.sessionId,
+      commandName: commandInfo.commandName,
+      commandArgs: commandInfo.commandArgs,
+    });
+
+    // Create a system message for the command
+    return {
+      message: {
+        id: raw.uuid,
+        session_id: envelope.sessionId,
+        parent_id: raw.parentUuid ?? '',
+        type: 'system',
+        subtype: 'local_command',
+        timestamp: raw.timestamp,
+        content: JSON.stringify([]),
+        stop_reason: '',
+        usage: JSON.stringify({}),
+        raw_json: JSON.stringify(envelope.payload),
+        // Store command info in extra fields (will be parsed from raw_json)
+        command_name: commandInfo.commandName,
+        command_args: commandInfo.commandArgs,
+      },
+      isLocalCommand: true,
+    };
+  }
+
+  // Check if this is a command output message
+  const outputInfo = parseCommandOutput(textContent);
+  if (outputInfo) {
+    debugLog('transform', 'command output detected', {
+      sessionId: envelope.sessionId,
+      hasStdout: !!outputInfo.stdout,
+      hasStderr: !!outputInfo.stderr,
+    });
+
+    // Return null - this will be merged with the preceding command
+    return {
+      message: {
+        id: raw.uuid,
+        session_id: envelope.sessionId,
+        parent_id: raw.parentUuid ?? '',
+        type: 'user', // Keep original type for now
+        timestamp: raw.timestamp,
+        content: JSON.stringify([]),
+        stop_reason: '',
+        usage: JSON.stringify({}),
+        raw_json: JSON.stringify(envelope.payload),
+      },
+      isCommandOutput: true,
+      commandOutput: {
+        stdout: outputInfo.stdout ? stripAnsi(outputInfo.stdout) : undefined,
+        stderr: outputInfo.stderr ? stripAnsi(outputInfo.stderr) : undefined,
+      },
+    };
   }
 
   // Transform content blocks
@@ -243,15 +401,106 @@ export function transformRawLine(envelope: RawMessageEnvelope): ProcessedMessage
     contentBlocks: content.length,
   });
 
-  return processed;
+  return { message: processed };
 }
 
 /**
  * Transform a batch of raw envelopes to ProcessedMessages.
- * Filters out non-message lines.
+ * Filters out non-message lines and groups command + output messages.
+ * Uses parentUuid (parent_id) to match outputs with their commands, not position.
  */
 export function transformRawBatch(envelopes: RawMessageEnvelope[]): ProcessedMessage[] {
-  return envelopes.map(transformRawLine).filter((msg): msg is ProcessedMessage => msg !== null);
+  const { merged } = transformRawBatchWithOutputs(envelopes);
+  return merged;
+}
+
+/**
+ * Result type for batch transformation that includes both merged and output messages.
+ */
+export interface TransformBatchResult {
+  /** Merged messages for TinyBase (commands have stdout/stderr merged) */
+  merged: ProcessedMessage[];
+  /** Raw output messages to save to SQLite (for reload merging in closed sessions) */
+  outputs: ProcessedMessage[];
+  /** Output messages whose parent command was NOT in this batch (need late merge to TinyBase) */
+  orphanedOutputs: ProcessedMessage[];
+}
+
+/**
+ * Transform a batch of raw envelopes to ProcessedMessages, returning both merged
+ * messages for UI display and raw output messages for SQLite persistence.
+ *
+ * This is needed because:
+ * - UI needs outputs merged into commands for display
+ * - SQLite needs output messages as separate rows for reload merging (closed-sessions.ts)
+ *
+ * Uses parentUuid (parent_id) to match outputs with their commands, not position.
+ */
+export function transformRawBatchWithOutputs(envelopes: RawMessageEnvelope[]): TransformBatchResult {
+  // First pass: transform all envelopes with metadata
+  const results = envelopes
+    .map(transformRawLineInternal)
+    .filter((r): r is TransformResult => r !== null);
+
+  // Build a map of command messages by UUID for output matching
+  const commandsByUuid = new Map<string, ProcessedMessage>();
+  const merged: ProcessedMessage[] = [];
+  const outputs: ProcessedMessage[] = [];
+  const orphanedOutputs: ProcessedMessage[] = [];
+
+  // First pass: collect commands and regular messages
+  for (const result of results) {
+    if (result.isLocalCommand) {
+      commandsByUuid.set(result.message.id, result.message);
+      merged.push(result.message);
+    } else if (result.isCommandOutput) {
+      // Collect output messages for SQLite persistence
+      // Store stdout/stderr in the output message itself for SQLite
+      if (result.commandOutput) {
+        result.message.stdout = result.commandOutput.stdout;
+        result.message.stderr = result.commandOutput.stderr;
+      }
+      outputs.push(result.message);
+    } else {
+      merged.push(result.message);
+    }
+  }
+
+  // Second pass: merge outputs into commands for UI display
+  // Track which outputs are orphaned (parent not in this batch) for late merging
+  for (const result of results) {
+    if (result.isCommandOutput && result.commandOutput) {
+      const parentId = result.message.parent_id;
+      const parentCommand = commandsByUuid.get(parentId);
+      if (parentCommand) {
+        // Append if multiple outputs for the same command
+        if (parentCommand.stdout && result.commandOutput.stdout) {
+          parentCommand.stdout += '\n' + result.commandOutput.stdout;
+        } else if (result.commandOutput.stdout) {
+          parentCommand.stdout = result.commandOutput.stdout;
+        }
+
+        if (parentCommand.stderr && result.commandOutput.stderr) {
+          parentCommand.stderr += '\n' + result.commandOutput.stderr;
+        } else if (result.commandOutput.stderr) {
+          parentCommand.stderr = result.commandOutput.stderr;
+        }
+        // Output was merged in-batch, NOT orphaned
+      } else {
+        // Output without parent command - may arrive in different batch
+        // Add to orphanedOutputs for late merging into TinyBase
+        orphanedOutputs.push(result.message);
+        debugLog('transform', 'orphaned command output - parent not found in batch', {
+          parentId,
+          sessionId: result.message.session_id,
+          hasStdout: !!result.commandOutput.stdout,
+          hasStderr: !!result.commandOutput.stderr,
+        });
+      }
+    }
+  }
+
+  return { merged, outputs, orphanedOutputs };
 }
 
 /**
