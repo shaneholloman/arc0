@@ -99,6 +99,7 @@ export async function handleSessionsSync(
       projectIdMap.set(session.cwd, projectId);
     }
   }
+  let projectsCreated = 0;
 
   // Process sessions in a transaction
   store.transaction(() => {
@@ -120,6 +121,7 @@ export async function handleSessionsSync(
             name: projectName,
             starred: 0,
           }));
+          projectsCreated++;
         }
       }
     }
@@ -149,12 +151,12 @@ export async function handleSessionsSync(
   });
 
   const deviceId = store.getValue('device') as string | undefined;
-  const projectCount = sessions.filter((s) => s.cwd).length;
   console.log('[handlers] sessions processed:', {
     deviceId: deviceId ?? 'unknown',
     workstationId,
     upserted: sessions.length,
-    projectsUpserted: projectCount,
+    projectsReferenced: projectIdMap.size,
+    projectsCreated,
     closed: countClosedSessions(store, workstationId, sessionIds),
   });
 }
@@ -288,6 +290,7 @@ export async function handleMessagesBatch(
   // extractProjectsFromRaw returns Map<path, ProcessedProject> - we need to generate hash IDs
   // Project IDs include workstationId to keep projects separate per workstation
   const rawProjects = extractProjectsFromRaw(rawEnvelopes);
+  let projectsCreated = 0;
   for (const [path, project] of rawProjects) {
     const projectId = await generateProjectId(workstationId, path);
     const existingProject = store.getRow('projects', projectId);
@@ -297,6 +300,7 @@ export async function handleMessagesBatch(
         workstation_id: workstationId,
         path, // Store raw path
       }));
+      projectsCreated++;
     }
   }
 
@@ -346,7 +350,8 @@ export async function handleMessagesBatch(
     workstationId,
     rawCount: rawEnvelopes.length,
     processedCount: processedMessages.length,
-    projectsUpserted: rawProjects.size,
+    projectsReferenced: rawProjects.size,
+    projectsCreated,
     sessionsUpdated: metadataUpdates.size,
     sessionNamesUpdated: nameUpdates.length,
   });
