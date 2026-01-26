@@ -3,6 +3,7 @@ import pc from "picocolors";
 import { VERSION, loadConfig, type Arc0Config } from "../shared/config.js";
 import { startCommand } from "./commands/start.js";
 import { stopCommand } from "./commands/stop.js";
+import { restartCommand } from "./commands/restart.js";
 import { statusCommand } from "./commands/status.js";
 import { initCommand } from "./commands/init.js";
 import { authCommand } from "./commands/auth.js";
@@ -84,6 +85,7 @@ ${pc.bold("COMMANDS")}
   init        Initialize Arc0 (first-time setup)
   start       Start the daemon
   stop        Stop the daemon
+  restart     Restart the daemon
   status      Check daemon status
   pair        Pair a mobile device (secure E2E encryption)
   clients     Manage paired devices (list/revoke)
@@ -139,6 +141,7 @@ async function interactiveMode() {
       },
       { value: "start", label: "Start", hint: "Start the daemon" },
       { value: "stop", label: "Stop", hint: "Stop the daemon" },
+      { value: "restart", label: "Restart", hint: "Restart the daemon" },
       { value: "pair", label: "Pair", hint: "Pair a mobile device" },
       { value: "clients", label: "Clients", hint: "Manage paired devices" },
       {
@@ -172,6 +175,9 @@ async function interactiveMode() {
       break;
     case "stop":
       await stopCommand();
+      break;
+    case "restart":
+      await restartCommand();
       break;
     case "pair":
       await pairCommand();
@@ -233,6 +239,9 @@ async function main() {
     }
     case "stop":
       await stopCommand();
+      break;
+    case "restart":
+      await restartCommand();
       break;
     case "status":
       await statusCommand();
