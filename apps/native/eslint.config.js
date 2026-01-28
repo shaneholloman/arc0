@@ -1,10 +1,16 @@
-// https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config');
-const expoConfig = require("eslint-config-expo/flat");
+import { reactLibraryConfig } from "@arc0/eslint-config/react-library";
+import expoConfig from "eslint-config-expo/flat";
 
-module.exports = defineConfig([
-  expoConfig,
+/** @type {import("eslint").Linter.Config[]} */
+export default [
+  ...expoConfig,
+  ...reactLibraryConfig,
   {
-    ignores: ["dist/*"],
-  }
-]);
+    ignores: ["dist/**", "android/**", "ios/**", ".expo/**"],
+  },
+  {
+    rules: {
+      "import/no-unresolved": "off", // TypeScript handles path resolution
+    },
+  },
+];

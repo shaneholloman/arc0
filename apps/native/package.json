@@ -106,6 +106,7 @@
     "uniwind": "^1.2.6"
   },
   "devDependencies": {
+    "@arc0/eslint-config": "workspace:*",
     "@babel/core": "^7.26.0",
     "@playwright/test": "^1.52.0",
     "@types/diff": "^8.0.0",

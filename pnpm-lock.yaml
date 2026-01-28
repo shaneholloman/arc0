@@ -353,6 +353,9 @@ importers:
         specifier: ^1.2.6
         version: 1.2.6(react-native@0.81.5(@babel/core@7.28.6)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)(tailwindcss@4.1.18)
     devDependencies:
+      '@arc0/eslint-config':
+        specifier: workspace:*
+        version: link:../../packages/eslint-config
       '@babel/core':
         specifier: ^7.26.0
         version: 7.28.6
