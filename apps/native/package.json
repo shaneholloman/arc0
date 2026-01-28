@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "postinstall": "./scripts/patch-expect-webdriverio.sh",
-    "dev": "expo start -c",
+    "dev": "expo start -c --lan",
     "android": "expo start -c --android",
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
