@@ -15,7 +15,7 @@ import { CriticalErrorFallback } from '@/components/ErrorFallback';
 
 import { resolveTheme, type ThemePreference } from './core';
 import { runMigrations } from './migrations/runner';
-import { setDbInstance } from './persister';
+import { setDbInstance, setPersisterInstance } from './persister';
 import { Persister } from 'tinybase/persisters';
 
 interface StoreContextValue {
@@ -209,6 +209,9 @@ export function StoreProvider({ children }: StoreProviderProps) {
           // Load once at startup
           await persister.load();
 
+          // Store persister instance for transaction coordination
+          setPersisterInstance(persister);
+
           // AutoSave only (NO autoLoad - it uses setContent() which replaces entire store)
           await persister.startAutoSave();
           console.log('[StoreProvider] Persister initialized, autoSave started');
@@ -267,6 +270,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
       }
       if (persister) {
         persister.stopAutoSave?.();
+        setPersisterInstance(null);
       }
     };
   }, [store, retryCount]);

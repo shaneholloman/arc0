@@ -150,29 +150,25 @@ async function main() {
   };
 
   // Helper to send messages for a client based on their cursor
+  // Sends one batch per session to ensure each batch contains messages for exactly one session
   const sendMessagesForClient = (socketId: string, cursor: { sessionId: string; lastMessageTs: string }[]) => {
     // Build cursor map for quick lookup
     const cursorMap = new Map(cursor.map((c) => [c.sessionId, c.lastMessageTs]));
 
     // Get all active sessions
     const activeSessions = sessionWatcher.getActiveSessions();
-    const allMessages: RawMessageEnvelope[] = [];
 
     for (const session of activeSessions) {
       const lastTs = cursorMap.get(session.sessionId) ?? "";
       const lines = jsonlWatcher.getLinesSince(session.sessionId, lastTs);
 
       if (lines.length > 0) {
-        allMessages.push(...linesToEnvelopes(session.sessionId, lines));
+        socketServer.sendMessagesBatchToClient(socketId, {
+          workstationId,
+          messages: linesToEnvelopes(session.sessionId, lines),
+          batchId: randomUUID(),
+        });
       }
-    }
-
-    if (allMessages.length > 0) {
-      socketServer.sendMessagesBatchToClient(socketId, {
-        workstationId,
-        messages: allMessages,
-        batchId: randomUUID(),
-      });
     }
   };
 

@@ -17,8 +17,9 @@ import type {
 // Encryption Types
 // =============================================================================
 
-// Re-export type from @arc0/crypto (runtime function imported directly from crypto)
-export type { EncryptedEnvelope } from "@arc0/crypto";
+// Import type for local use; re-export for consumers
+import type { EncryptedEnvelope } from "@arc0/crypto";
+export type { EncryptedEnvelope };
 
 // =============================================================================
 // Socket.IO Authentication

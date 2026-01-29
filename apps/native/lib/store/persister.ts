@@ -5,6 +5,7 @@
  */
 
 import type * as SQLite from 'expo-sqlite';
+import type { Persister } from 'tinybase/persisters';
 import { Mutex } from 'async-mutex';
 
 /**
@@ -12,6 +13,12 @@ import { Mutex } from 'async-mutex';
  * Set by StoreProvider during initialization.
  */
 let dbInstance: SQLite.SQLiteDatabase | null = null;
+
+/**
+ * TinyBase persister instance for coordinating auto-save with transactions.
+ * Set by StoreProvider during initialization.
+ */
+let persisterInstance: Persister | null = null;
 
 /**
  * Transaction mutex to prevent nested transactions.
@@ -26,6 +33,14 @@ export function setDbInstance(db: SQLite.SQLiteDatabase | null): void {
 
 export function getDbInstance(): SQLite.SQLiteDatabase | null {
   return dbInstance;
+}
+
+export function setPersisterInstance(p: Persister | null): void {
+  persisterInstance = p;
+}
+
+export function getPersisterInstance(): Persister | null {
+  return persisterInstance;
 }
 
 /**
@@ -58,12 +73,26 @@ export async function executeStatement(
 /**
  * Execute multiple statements in a transaction.
  * Uses a mutex to serialize transactions and prevent nesting errors.
+ * Also pauses TinyBase auto-save during the transaction to prevent conflicts.
  */
 export async function withTransaction(fn: () => Promise<void>): Promise<void> {
   if (!dbInstance) {
     throw new Error('Database not initialized');
   }
+
   await transactionMutex.runExclusive(async () => {
-    await dbInstance!.withTransactionAsync(fn);
+    // Pause TinyBase auto-save to prevent transaction conflicts
+    const wasAutoSaving = persisterInstance?.isAutoSaving() ?? false;
+    if (wasAutoSaving) {
+      await persisterInstance?.stopAutoSave();
+    }
+
+    try {
+      await dbInstance!.withTransactionAsync(fn);
+    } finally {
+      if (wasAutoSaving) {
+        await persisterInstance?.startAutoSave();
+      }
+    }
   });
 }
