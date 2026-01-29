@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import * as SQLite from 'expo-sqlite';
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Appearance, Platform } from 'react-native';
 import type { Indexes, Queries, Relationships, Store } from 'tinybase';
 import {
@@ -47,6 +47,11 @@ export function StoreProvider({ children }: StoreProviderProps) {
   const [error, setError] = useState<Error | null>(null);
   const [db, setDb] = useState<SQLite.SQLiteDatabase | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const initIdRef = useRef(0);
+  const dbRef = useRef<SQLite.SQLiteDatabase | null>(null);
+  const persisterRef = useRef<Persister | null>(null);
+  const themeListenerIdRef = useRef<string | null>(null);
+  const appearanceSubscriptionRef = useRef<ReturnType<typeof Appearance.addChangeListener> | null>(null);
 
   // Create TinyBase store with initial values and empty tables
   // Tables must be initialized before autoSave for persister to track them
@@ -130,14 +135,29 @@ export function StoreProvider({ children }: StoreProviderProps) {
   }, []);
 
   useEffect(() => {
-    let persister: Persister | null = null;
-    let themeListenerId: string | null = null;
-    let appearanceSubscription: ReturnType<typeof Appearance.addChangeListener> | null = null;
+    const initId = ++initIdRef.current;
+    let cancelled = false;
+    const isStale = () => cancelled || initId !== initIdRef.current;
+    // Guard async init to prevent stale work after retries or dev reloads.
+
+    const closeDb = async (database: SQLite.SQLiteDatabase | null) => {
+      if (!database) return;
+      const maybeDb = database as unknown as { closeAsync?: () => Promise<void>; close?: () => Promise<void> };
+      try {
+        if (typeof maybeDb.closeAsync === 'function') {
+          await maybeDb.closeAsync();
+        } else if (typeof maybeDb.close === 'function') {
+          await maybeDb.close();
+        }
+      } catch (err) {
+        console.warn('[StoreProvider] Failed to close database:', err);
+      }
+    };
 
     async function initialize() {
       try {
-        // Reset store to clean state before initialization (important for retry)
-        // This ensures we don't have corrupted state from a previous failed attempt
+        // Reset store to clean state before initialization (important for retry).
+        // This ensures we don't have corrupted state from a previous failed attempt.
         store.setTables({
           sessions: {},
           messages: {},
@@ -150,18 +170,39 @@ export function StoreProvider({ children }: StoreProviderProps) {
           device: '',
           active_session_id: '',
         });
+        if (isStale()) return;
+
+        // Clear any previous DB handle before re-initializing.
+        if (dbRef.current) {
+          await closeDb(dbRef.current);
+          dbRef.current = null;
+          setDbInstance(null);
+        }
+        setDb(null);
 
         if (Platform.OS === 'web') {
           // Web: Use OPFS persistence
           const { createOpfsPersister } = await import('tinybase/persisters/persister-browser');
+          if (isStale()) return;
           const opfs = await navigator.storage.getDirectory();
+          if (isStale()) return;
           const handle = await opfs.getFileHandle('arc0-store.json', { create: true });
-          persister = createOpfsPersister(store, handle);
+          if (isStale()) return;
+          const persister = createOpfsPersister(store, handle);
+          persisterRef.current = persister;
           await persister.load();
+          if (isStale()) return;
           await persister.startAutoSave();
+          if (isStale()) return;
+          setPersisterInstance(persister);
         } else {
           // Native: Use SQLite with tabular mode
           const database = await SQLite.openDatabaseAsync('arc0.db');
+          if (isStale()) {
+            await closeDb(database);
+            return;
+          }
+          dbRef.current = database;
           setDb(database);
           setDbInstance(database); // Make available for direct queries
 
@@ -171,16 +212,19 @@ export function StoreProvider({ children }: StoreProviderProps) {
             PRAGMA synchronous = NORMAL;
             PRAGMA temp_store = FILE;
           `);
+          if (isStale()) return;
 
           // Run migrations FIRST (before persister)
           await runMigrations(database);
+          if (isStale()) return;
 
           // Create persister with tabular mode
           const { createExpoSqlitePersister } = await import(
             'tinybase/persisters/persister-expo-sqlite'
           );
+          if (isStale()) return;
 
-          persister = createExpoSqlitePersister(store, database, {
+          const persister = createExpoSqlitePersister(store, database, {
             mode: 'tabular',
             tables: {
               load: {
@@ -202,15 +246,19 @@ export function StoreProvider({ children }: StoreProviderProps) {
               save: true,
             },
           });
+          persisterRef.current = persister;
+          if (isStale()) return;
 
           // Load once at startup
           await persister.load();
+          if (isStale()) return;
 
           // Store persister instance for transaction coordination
           setPersisterInstance(persister);
 
           // AutoSave only (NO autoLoad - it uses setContent() which replaces entire store)
           await persister.startAutoSave();
+          if (isStale()) return;
           console.log('[StoreProvider] Persister initialized, autoSave started');
         }
 
@@ -226,6 +274,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
 
         // Sync theme to Uniwind (resolves 'system' to actual theme)
         const { Uniwind } = await import('uniwind');
+        if (isStale()) return;
         const syncTheme = () => {
           const preference = store.getValue('theme') as ThemePreference | undefined;
           if (preference) {
@@ -233,10 +282,10 @@ export function StoreProvider({ children }: StoreProviderProps) {
           }
         };
         syncTheme();
-        themeListenerId = store.addValueListener('theme', syncTheme);
+        themeListenerIdRef.current = store.addValueListener('theme', syncTheme);
 
         // Listen for system appearance changes when preference is 'system'
-        appearanceSubscription = Appearance.addChangeListener(({ colorScheme }) => {
+        appearanceSubscriptionRef.current = Appearance.addChangeListener(({ colorScheme }) => {
           const preference = store.getValue('theme') as ThemePreference | undefined;
           if (preference === 'system') {
             const resolved = colorScheme === 'dark' ? 'dark' : 'light';
@@ -247,10 +296,12 @@ export function StoreProvider({ children }: StoreProviderProps) {
         // Wait for next tick to ensure TinyBase hooks see the loaded data
         // Without this, useTable() may return stale empty data on first render after isReady
         await new Promise((resolve) => setTimeout(resolve, 0));
+        if (isStale()) return;
 
         setIsReady(true);
       } catch (err) {
         console.error('[StoreProvider] Initialization failed:', err);
+        if (isStale()) return;
         setError(err instanceof Error ? err : new Error(String(err)));
       }
     }
@@ -258,16 +309,27 @@ export function StoreProvider({ children }: StoreProviderProps) {
     initialize();
 
     return () => {
-      // Cleanup listeners and persister on unmount
-      if (themeListenerId) {
-        store.delListener(themeListenerId);
+      cancelled = true;
+      // Cleanup listeners and persister on unmount / retry.
+      if (themeListenerIdRef.current) {
+        store.delListener(themeListenerIdRef.current);
+        themeListenerIdRef.current = null;
       }
-      if (appearanceSubscription) {
-        appearanceSubscription.remove();
+      if (appearanceSubscriptionRef.current) {
+        appearanceSubscriptionRef.current.remove();
+        appearanceSubscriptionRef.current = null;
       }
-      if (persister) {
-        persister.stopAutoSave?.();
+      if (persisterRef.current) {
+        persisterRef.current.stopAutoSave?.();
+        persisterRef.current.stopAutoLoad?.();
+        persisterRef.current.destroy?.();
+        persisterRef.current = null;
         setPersisterInstance(null);
+      }
+      if (dbRef.current) {
+        void closeDb(dbRef.current);
+        dbRef.current = null;
+        setDbInstance(null);
       }
     };
   }, [store, retryCount]);

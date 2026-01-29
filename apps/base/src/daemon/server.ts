@@ -32,6 +32,7 @@ import {
 } from "./encryption.js";
 import { base64ToUint8Array } from "@arc0/crypto";
 import type { ActionHandlers } from "./actions.js";
+import { MessageQueueManager, type QueuedBatch } from "./message-queue.js";
 
 export interface ServerStatus {
   running: boolean;
@@ -259,6 +260,7 @@ export class SocketServer {
   private useClientAuth: boolean;
   private actionHandlers?: ActionHandlers;
   private _port = 0;
+  private messageQueue: MessageQueueManager;
 
   constructor(options: SocketServerOptions) {
     this.workstationId = options.workstationId;
@@ -267,6 +269,11 @@ export class SocketServer {
     this.secret = options.secret;
     this.useClientAuth = options.useClientAuth ?? false;
     this.actionHandlers = options.actionHandlers;
+
+    // Initialize message queue for flow control
+    this.messageQueue = new MessageQueueManager((socketId, payload, encrypted, onAck) =>
+      this.emitMessage(socketId, payload, encrypted, onAck)
+    );
 
     // Create HTTP server for Socket.IO
     this.httpServer = createServer();
@@ -391,6 +398,7 @@ export class SocketServer {
         this.clients.delete(socket.id);
         this.authenticatedSockets.delete(socket.id);
         removeEncryptionContext(socket.id);
+        this.messageQueue.onDisconnect(socket.id);
       });
 
       // Setup pairing handlers (always available)
@@ -559,6 +567,39 @@ export class SocketServer {
   }
 
   /**
+   * Emit a message to a socket with encryption support. Returns false if socket not found.
+   */
+  private emitMessage(
+    socketId: string,
+    payload: RawMessagesBatchPayload,
+    encrypted: boolean,
+    onAck: () => void
+  ): boolean {
+    const socket = this.io.sockets.sockets.get(socketId);
+    if (!socket) return false;
+
+    const updateLastAck = () => {
+      const client = this.clients.get(socketId);
+      if (client) {
+        client.lastAckAt = new Date();
+      }
+      onAck();
+    };
+
+    if (encrypted && this.useClientAuth && hasEncryptionContext(socketId)) {
+      const encryptedPayload = encryptForClient(socketId, payload);
+      if (encryptedPayload) {
+        socket.emit("messages", encryptedPayload, updateLastAck);
+        return true;
+      }
+      return false;
+    } else {
+      socket.emit("messages", payload as unknown as EncryptedEnvelope, updateLastAck);
+      return true;
+    }
+  }
+
+  /**
    * Send sessions to all connected clients (encrypted if applicable).
    */
   sendSessionsSync(payload: SessionsSyncPayload): void {
@@ -650,66 +691,50 @@ export class SocketServer {
   }
 
   /**
-   * Send messages to all connected clients (encrypted if applicable).
+   * Send messages to all connected clients (queued with flow control).
    */
   sendMessagesBatch(payload: RawMessagesBatchPayload): void {
     if (this.clients.size === 0) return;
 
-    // Send to each authenticated client with encryption if available
+    // Queue for each authenticated client
     for (const socketId of this.authenticatedSockets) {
       const socket = this.io.sockets.sockets.get(socketId);
       if (!socket) continue;
 
-      if (this.useClientAuth && hasEncryptionContext(socketId)) {
-        const encrypted = encryptForClient(socketId, payload);
-        if (encrypted) {
-          socket.emit("messages", encrypted, () => {
-            const client = this.clients.get(socketId);
-            if (client) {
-              client.lastAckAt = new Date();
-            }
-          });
-        }
-      } else {
-        socket.emit("messages", payload as unknown as EncryptedEnvelope, () => {
-          const client = this.clients.get(socketId);
-          if (client) {
-            client.lastAckAt = new Date();
-          }
-        });
-      }
+      const encrypted = this.useClientAuth && hasEncryptionContext(socketId);
+      this.messageQueue.enqueue(socketId, { payload, encrypted });
     }
 
-    console.log(`[socket] Sent messages (${payload.messages.length} messages, batch=${payload.batchId})`);
+    console.log(`[socket] Queued messages (${payload.messages.length} messages, batch=${payload.batchId})`);
   }
 
   /**
-   * Send messages to a specific client (encrypted if applicable).
+   * Send messages to a specific client (queued with flow control).
    */
   sendMessagesBatchToClient(socketId: string, payload: RawMessagesBatchPayload): void {
     const socket = this.io.sockets.sockets.get(socketId);
     if (!socket) return;
 
-    if (this.useClientAuth && hasEncryptionContext(socketId)) {
-      const encrypted = encryptForClient(socketId, payload);
-      if (encrypted) {
-        socket.emit("messages", encrypted, () => {
-          const client = this.clients.get(socketId);
-          if (client) {
-            client.lastAckAt = new Date();
-          }
-        });
-      }
-    } else {
-      socket.emit("messages", payload as unknown as EncryptedEnvelope, () => {
-        const client = this.clients.get(socketId);
-        if (client) {
-          client.lastAckAt = new Date();
-        }
-      });
-    }
+    const encrypted = this.useClientAuth && hasEncryptionContext(socketId);
+    this.messageQueue.enqueue(socketId, { payload, encrypted });
 
-    console.log(`[socket] Sent messages to ${socketId} (${payload.messages.length} messages)`);
+    console.log(`[socket] Queued messages to ${socketId} (${payload.messages.length} messages)`);
+  }
+
+  /**
+   * Send messages to a specific client and wait for ack (for sequential init flow).
+   */
+  sendMessagesBatchToClientAsync(socketId: string, payload: RawMessagesBatchPayload): Promise<void> {
+    return new Promise((resolve) => {
+      const socket = this.io.sockets.sockets.get(socketId);
+      if (!socket) {
+        resolve();
+        return;
+      }
+
+      const encrypted = this.useClientAuth && hasEncryptionContext(socketId);
+      this.messageQueue.enqueue(socketId, { payload, encrypted, resolve });
+    });
   }
 
   /**
@@ -744,6 +769,7 @@ export class SocketServer {
   }
 
   close(): void {
+    this.messageQueue.stop();
     this.io.close();
     this.httpServer.close();
   }

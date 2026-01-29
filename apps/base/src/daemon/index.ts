@@ -150,8 +150,8 @@ async function main() {
   };
 
   // Helper to send messages for a client based on their cursor
-  // Sends one batch per session to ensure each batch contains messages for exactly one session
-  const sendMessagesForClient = (socketId: string, cursor: { sessionId: string; lastMessageTs: string }[]) => {
+  // Sends one batch per session SEQUENTIALLY with flow control (waits for ack before next batch)
+  const sendMessagesForClient = async (socketId: string, cursor: { sessionId: string; lastMessageTs: string }[]) => {
     // Build cursor map for quick lookup
     const cursorMap = new Map(cursor.map((c) => [c.sessionId, c.lastMessageTs]));
 
@@ -163,7 +163,8 @@ async function main() {
       const lines = jsonlWatcher.getLinesSince(session.sessionId, lastTs);
 
       if (lines.length > 0) {
-        socketServer.sendMessagesBatchToClient(socketId, {
+        // Wait for ack before sending next session's batch
+        await socketServer.sendMessagesBatchToClientAsync(socketId, {
           workstationId,
           messages: linesToEnvelopes(session.sessionId, lines),
           batchId: randomUUID(),
@@ -197,12 +198,12 @@ async function main() {
       // 2. Projects second
       sendProjectsSyncToClient(socketId);
 
-      // 3. Messages last (guaranteed order)
+      // 3. Messages last - sequential with flow control (waits for ack between batches)
       const cursor = payload.cursor.map((c) => ({
         sessionId: c.sessionId,
         lastMessageTs: c.lastMessageTs,
       }));
-      sendMessagesForClient(socketId, cursor);
+      await sendMessagesForClient(socketId, cursor);
     },
     preferredPort: portPrefs?.socketPort,
     onReady: (port) => {

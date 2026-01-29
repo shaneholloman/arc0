@@ -415,23 +415,33 @@ async function handleMessagesBatchInternal(
     }
   }
 
-  // 3. Write to TinyBase `messages` store (immediate UI reactivity)
-  writeProcessedMessagesToStore(store, processedMessages);
-  debugLog('messages', 'saved to TinyBase', {
+  // 3. Write only active session messages to TinyBase (UI reactivity)
+  const activeSessionId = store.getValue('active_session_id') as string | undefined;
+  const activeMessages = activeSessionId
+    ? processedMessages.filter((m) => m.session_id === activeSessionId)
+    : [];
+  if (activeMessages.length > 0) {
+    writeProcessedMessagesToStore(store, activeMessages);
+  }
+  debugLog('messages', 'saved to TinyBase (active only)', {
     batchId,
-    count: processedMessages.length,
-    sessionIds: [...new Set(processedMessages.map((m) => m.session_id))],
+    count: activeMessages.length,
+    activeSessionId,
   });
 
   // 2b. Merge late-arriving (orphaned) outputs into existing command rows in TinyBase
   // This handles outputs that arrive in a different batch than their parent command
   // NOTE: We only merge orphanedOutputs, NOT all outputMessages, to avoid duplicating
   // outputs that were already merged in-batch by transformRawBatchWithOutputs
-  mergeOutputsIntoExistingCommands(store, orphanedOutputs);
-  if (orphanedOutputs.length > 0) {
+  const activeOrphanedOutputs = activeSessionId
+    ? orphanedOutputs.filter((m) => m.session_id === activeSessionId)
+    : [];
+  if (activeOrphanedOutputs.length > 0) {
+    mergeOutputsIntoExistingCommands(store, activeOrphanedOutputs);
     debugLog('messages', 'merged orphaned outputs into existing commands', {
       batchId,
-      orphanedCount: orphanedOutputs.length,
+      orphanedCount: activeOrphanedOutputs.length,
+      activeSessionId,
     });
   }
 

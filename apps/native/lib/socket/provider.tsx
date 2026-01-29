@@ -118,6 +118,17 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
 
   // Get SocketManager instance
   const manager = useMemo(() => getSocketManager(), []);
+  const isActiveRef = useRef(true);
+
+  // Ensure sockets are closed on unmount / dev reload to avoid duplicate connections.
+  useEffect(() => {
+    // Reset activity flag on each mount/effect run so dev reloads can reconnect.
+    isActiveRef.current = true;
+    return () => {
+      isActiveRef.current = false;
+      manager.disconnectAll();
+    };
+  }, [manager]);
 
   // Subscribe to connection states via useSyncExternalStore
   const allConnectionStates = useSyncExternalStore(
@@ -258,6 +269,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       if (row.enabled === 1 && row.url) {
         const authToken = await getWorkstationSecret(id);
         const encryptionKey = await getWorkstationEncryptionKey(id);
+        if (!isActiveRef.current) return;
         manager.connect(id, row.url, {
           authToken: authToken ?? undefined,
           encryptionKey: encryptionKey ?? undefined,
@@ -322,6 +334,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       }
 
       // Connect to the new workstation
+      if (!isActiveRef.current) return;
       manager.connect(workstationId, url, { authToken, encryptionKey });
 
       console.log(`[SocketProvider] Added workstation ${workstationId}: ${name} at ${url}`);
@@ -569,6 +582,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       if (row.enabled === 1 && row.url) {
         Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
           ([authToken, encryptionKey]) => {
+            if (!isActiveRef.current) return;
             manager.connect(id, row.url!, {
               authToken: authToken ?? undefined,
               encryptionKey: encryptionKey ?? undefined,
@@ -604,6 +618,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
         // New or newly enabled workstation - connect
         Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
           ([authToken, encryptionKey]) => {
+            if (!isActiveRef.current) return;
             manager.connect(id, row.url!, {
               authToken: authToken ?? undefined,
               encryptionKey: encryptionKey ?? undefined,
@@ -641,6 +656,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
             console.log(`[SocketProvider] App active, reconnecting ${id}...`);
             Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
               ([authToken, encryptionKey]) => {
+                if (!isActiveRef.current) return;
                 manager.connect(id, row.url!, {
                   authToken: authToken ?? undefined,
                   encryptionKey: encryptionKey ?? undefined,
