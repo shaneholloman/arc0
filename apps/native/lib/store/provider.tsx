@@ -63,7 +63,6 @@ export function StoreProvider({ children }: StoreProviderProps) {
       .setValues({
         theme: 'system', // Will be updated from persisted value
         device: '', // Will be set after load if empty
-        closed_session_access_order: '[]', // JSON array of recently accessed closed session IDs (LRU order)
         active_session_id: '', // Currently viewed session ID (for real-time artifact updates)
       });
   });
@@ -149,7 +148,6 @@ export function StoreProvider({ children }: StoreProviderProps) {
         store.setValues({
           theme: 'system',
           device: '',
-          closed_session_access_order: '[]',
           active_session_id: '',
         });
 
@@ -186,8 +184,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
             mode: 'tabular',
             tables: {
               load: {
-                // Load messages from VIEW (only open session messages)
-                open_messages: { tableId: 'messages', rowIdColumnName: 'id' },
+                // NO 'messages' - loaded on-demand when navigating to a session
                 sessions: { tableId: 'sessions', rowIdColumnName: 'id' },
                 projects: { tableId: 'projects', rowIdColumnName: 'id' },
                 workstations: { tableId: 'workstations', rowIdColumnName: 'id' },

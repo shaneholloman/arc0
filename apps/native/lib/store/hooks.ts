@@ -25,7 +25,7 @@ import type {
 } from '@/lib/types/session';
 import type { SessionStatus, StatusInfo } from '@/lib/types/session-status';
 import { useUserActionsSafe } from '@/lib/contexts/UserActionsContext';
-import { loadClosedSessionMessages, recordClosedSessionAccess } from './closed-sessions';
+import { loadSessionMessages } from './closed-sessions';
 import type { ThemePreference } from './core';
 import { resolveTheme } from './core';
 import { useStoreContext } from './provider';
@@ -469,24 +469,23 @@ export function useMessageIds(sessionId: string): UseMessageIdsResult {
     };
   }, [sessionId]);
 
-  // Load closed session messages on demand
+  // Load session messages on demand (both open and closed sessions)
   useEffect(() => {
     async function loadIfNeeded() {
       // Skip on web - OPFS persists entire store including all messages
-      // SQLite-based loading is only needed on native where we use the open_messages view
+      // SQLite-based loading is only needed on native where we load on demand
       if (Platform.OS === 'web') {
         return;
       }
 
       // Only load if:
-      // - Session is closed
+      // - Session exists
       // - No messages yet in store
       // - We haven't already attempted to load this session
       // - Not currently loading
       const hasAttempted = attemptedLoadRef.current.has(sessionId);
       if (
         session &&
-        Number(session.open) === 0 &&
         messageIds.length === 0 &&
         store &&
         indexes &&
@@ -496,11 +495,7 @@ export function useMessageIds(sessionId: string): UseMessageIdsResult {
         attemptedLoadRef.current.add(sessionId);
         setIsLoadingMessages(true);
         try {
-          const loaded = await loadClosedSessionMessages(store, indexes, sessionId);
-          if (loaded) {
-            // Track access for LRU eviction of other closed sessions
-            recordClosedSessionAccess(store, indexes, sessionId);
-          }
+          await loadSessionMessages(store, indexes, sessionId);
         } finally {
           setIsLoadingMessages(false);
         }
@@ -508,29 +503,7 @@ export function useMessageIds(sessionId: string): UseMessageIdsResult {
     }
 
     loadIfNeeded();
-  }, [sessionId, session?.open, messageIds.length, store, indexes, db, isLoadingMessages]);
-
-  // Track access for closed sessions that are already in memory (re-navigation)
-  // This keeps the LRU order updated when user navigates back to a previously viewed session
-  // Only runs if the first effect didn't handle this session (messages were already loaded)
-  // Skip on web - LRU eviction is for native memory management with SQLite
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      return;
-    }
-
-    // Skip if first effect already handled this session (it records access after loading)
-    const wasLoadedByFirstEffect = attemptedLoadRef.current.has(sessionId);
-    if (
-      !wasLoadedByFirstEffect &&
-      Number(session?.open) === 0 &&
-      messageIds.length > 0 &&
-      store &&
-      indexes
-    ) {
-      recordClosedSessionAccess(store, indexes, sessionId);
-    }
-  }, [sessionId, session?.open, messageIds.length, store, indexes]);
+  }, [sessionId, session, messageIds.length, store, indexes, db, isLoadingMessages]);
 
   // messageIds are already sorted by timestamp via the index's defaultSorter
   return { ids: messageIds, isLoadingMessages };

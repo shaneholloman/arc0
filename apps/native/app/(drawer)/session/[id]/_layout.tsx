@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { SessionInfo } from '@/components/sessions/SessionInfo';
 import { ScrollToMessageProvider } from '@/lib/contexts/ScrollToMessageContext';
 import { useSession } from '@/lib/store/hooks';
 import { useStoreContext } from '@/lib/store/provider';
+import { handleActiveSessionChange } from '@/lib/store/closed-sessions';
 import { THEME } from '@/lib/theme';
 import { useResponsiveDrawer } from '@/lib/hooks/useResponsiveDrawer';
 import { DrawerActions, useNavigation, useIsFocused } from '@react-navigation/native';
@@ -13,7 +14,7 @@ import { FileCode, GitBranch, Menu, MessageSquare } from 'lucide-react-native';
 import { Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUniwind } from 'uniwind';
-import { useStore } from 'tinybase/ui-react';
+import { useIndexes, useStore } from 'tinybase/ui-react';
 
 function SessionHeader() {
   const navigation = useNavigation();
@@ -69,17 +70,31 @@ export default function SessionLayout() {
   const colors = THEME[theme ?? 'light'];
   const { id } = useLocalSearchParams<{ id: string }>();
   const store = useStore();
+  const indexes = useIndexes();
   const isFocused = useIsFocused();
+  const previousSessionIdRef = useRef<string>('');
 
-  // Track active session for real-time artifact updates
+  // Track active session and unload previous session's messages
   useEffect(() => {
     if (store && id) {
+      const previousId = previousSessionIdRef.current;
+
       store.setValue('active_session_id', id);
+
+      // Unload previous session's messages (deferred to let new session load first)
+      if (previousId && previousId !== id && indexes) {
+        setTimeout(() => {
+          handleActiveSessionChange(store, indexes, previousId, id);
+        }, 0);
+      }
+
+      previousSessionIdRef.current = id;
+
       return () => {
         store.setValue('active_session_id', '');
       };
     }
-  }, [store, id]);
+  }, [store, id, indexes]);
 
   // Unmount children when not focused to free memory
   if (!isFocused) {

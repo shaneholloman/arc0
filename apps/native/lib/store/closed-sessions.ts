@@ -91,11 +91,12 @@ function extractTextContent(payload: unknown): string {
 }
 
 // =============================================================================
-// Load Closed Session Messages
+// Load Session Messages
 // =============================================================================
 
 /**
- * Load messages for a closed session from SQLite into the TinyBase store.
+ * Load messages for a session from SQLite into the TinyBase store.
+ * Works for both open and closed sessions - messages are loaded on demand.
  * Uses the messagesBySession index for O(1) check if messages are already loaded.
  *
  * @param store - TinyBase store instance
@@ -103,7 +104,7 @@ function extractTextContent(payload: unknown): string {
  * @param sessionId - Session ID to load messages for
  * @returns true if messages were loaded, false if already present
  */
-export async function loadClosedSessionMessages(
+export async function loadSessionMessages(
   store: Store,
   indexes: Indexes,
   sessionId: string
@@ -276,86 +277,8 @@ export function getLoadedMessageCount(indexes: Indexes, sessionId: string): numb
   return indexes.getSliceRowIds('messagesBySession', sessionId).length;
 }
 
-// =============================================================================
-// Memory Management with LRU Eviction
-// =============================================================================
-
-/** Maximum number of closed sessions to keep in memory */
-const MAX_CLOSED_SESSIONS_IN_MEMORY = 5;
-
 /**
- * Record access to a closed session for LRU tracking.
- * Updates the access order and triggers pruning if needed.
- *
- * @param store - TinyBase store instance
- * @param indexes - TinyBase indexes instance
- * @param sessionId - Session ID that was accessed
- */
-export function recordClosedSessionAccess(
-  store: Store,
-  indexes: Indexes,
-  sessionId: string
-): void {
-  // Verify session exists and is closed before tracking
-  const session = store.getRow('sessions', sessionId);
-  if (!session || Number(session.open) !== 0) {
-    return;
-  }
-
-  // Get current access order
-  const accessOrderJson = store.getValue('closed_session_access_order') as string;
-  let accessOrder: string[] = [];
-  try {
-    accessOrder = JSON.parse(accessOrderJson || '[]');
-  } catch {
-    accessOrder = [];
-  }
-
-  // Move sessionId to front (most recent)
-  const filtered = accessOrder.filter((id) => id !== sessionId);
-  const newOrder = [sessionId, ...filtered];
-
-  // Determine if pruning is needed
-  const needsPruning = newOrder.length > MAX_CLOSED_SESSIONS_IN_MEMORY;
-
-  // Only write the final order (avoid redundant store mutations)
-  const finalOrder = needsPruning
-    ? newOrder.slice(0, MAX_CLOSED_SESSIONS_IN_MEMORY)
-    : newOrder;
-  store.setValue('closed_session_access_order', JSON.stringify(finalOrder));
-
-  // Schedule pruning asynchronously to avoid blocking the render
-  if (needsPruning) {
-    setTimeout(() => {
-      pruneClosedSessionMessages(store, indexes, newOrder, MAX_CLOSED_SESSIONS_IN_MEMORY);
-    }, 0);
-  }
-}
-
-/**
- * Remove a session from the access tracking (e.g., when session is deleted).
- *
- * @param store - TinyBase store instance
- * @param sessionId - Session ID to remove from tracking
- */
-export function removeFromAccessTracking(store: Store, sessionId: string): void {
-  const accessOrderJson = store.getValue('closed_session_access_order') as string;
-  let accessOrder: string[] = [];
-  try {
-    accessOrder = JSON.parse(accessOrderJson || '[]');
-  } catch {
-    accessOrder = [];
-  }
-
-  const filtered = accessOrder.filter((id) => id !== sessionId);
-  if (filtered.length !== accessOrder.length) {
-    store.setValue('closed_session_access_order', JSON.stringify(filtered));
-  }
-}
-
-
-/**
- * Remove messages for a closed session from the TinyBase store.
+ * Remove messages for a session from the TinyBase store.
  * Use this to free memory when navigating away from closed sessions.
  *
  * NOTE: This is an optimization for memory management.
@@ -389,31 +312,23 @@ export function unloadSessionMessages(
 }
 
 /**
- * Unload messages for closed sessions, keeping only the N most recently accessed.
- * Useful for LRU-style memory management.
+ * Unload messages for the previous active session when switching sessions.
+ * Unloads ALL sessions (both open and closed) - only active route keeps messages.
  *
  * @param store - TinyBase store instance
  * @param indexes - TinyBase indexes instance
- * @param accessOrder - Array of session IDs in access order (most recent first)
- * @param keepCount - Number of sessions to keep loaded
+ * @param previousSessionId - Session ID that was previously active
+ * @param currentSessionId - Session ID that is now active
  */
-export function pruneClosedSessionMessages(
+export function handleActiveSessionChange(
   store: Store,
   indexes: Indexes,
-  accessOrder: string[],
-  keepCount: number
+  previousSessionId: string,
+  currentSessionId: string
 ): void {
-  // Get closed sessions
-  const sessionsToKeep = new Set(accessOrder.slice(0, keepCount));
-
-  // Get all sessions that are closed
-  const allSessions = store.getTable('sessions');
-  const closedSessionIds = Object.keys(allSessions).filter(
-    (id) => Number(allSessions[id].open) === 0 && !sessionsToKeep.has(id)
-  );
-
-  // Unload messages for old closed sessions
-  for (const sessionId of closedSessionIds) {
-    unloadSessionMessages(store, indexes, sessionId);
+  if (!previousSessionId || previousSessionId === currentSessionId) {
+    return;
   }
+
+  unloadSessionMessages(store, indexes, previousSessionId);
 }

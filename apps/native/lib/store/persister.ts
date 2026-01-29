@@ -73,7 +73,10 @@ export async function executeStatement(
 /**
  * Execute multiple statements in a transaction.
  * Uses a mutex to serialize transactions and prevent nesting errors.
- * Also pauses TinyBase auto-save during the transaction to prevent conflicts.
+ * Uses TinyBase's schedule() to serialize with auto-save operations.
+ *
+ * schedule() ensures our transaction runs after any in-progress auto-save
+ * completes and prevents new saves from starting until we're done.
  */
 export async function withTransaction(fn: () => Promise<void>): Promise<void> {
   if (!dbInstance) {
@@ -81,18 +84,15 @@ export async function withTransaction(fn: () => Promise<void>): Promise<void> {
   }
 
   await transactionMutex.runExclusive(async () => {
-    // Pause TinyBase auto-save to prevent transaction conflicts
-    const wasAutoSaving = persisterInstance?.isAutoSaving() ?? false;
-    if (wasAutoSaving) {
-      await persisterInstance?.stopAutoSave();
-    }
-
-    try {
+    if (persisterInstance) {
+      // schedule() ensures we run after any in-progress save completes
+      // and prevents new saves from starting until we're done
+      await persisterInstance.schedule(async () => {
+        await dbInstance!.withTransactionAsync(fn);
+      });
+    } else {
+      // No persister yet (during init) - just run directly
       await dbInstance!.withTransactionAsync(fn);
-    } finally {
-      if (wasAutoSaving) {
-        await persisterInstance?.startAutoSave();
-      }
     }
   });
 }
