@@ -1,6 +1,6 @@
 /**
  * Artifact extractor for raw JSONL message batches.
- * Extracts TodoWrite and ExitPlanMode tool calls from session messages.
+ * Extracts TodoWrite, TaskCreate/TaskUpdate, and ExitPlanMode tool calls from session messages.
  */
 
 import type { RawMessageEnvelope } from '@arc0/types';
@@ -25,9 +25,32 @@ export interface ExtractedArtifact {
 }
 
 export interface TodoItem {
+  /** Task ID for matching with TaskUpdate */
+  id?: string;
   content: string;
   status: 'pending' | 'in_progress' | 'completed';
   activeForm?: string;
+}
+
+interface TaskCreateInput {
+  subject: string;
+  description?: string;
+  activeForm?: string;
+}
+
+interface TaskUpdateInput {
+  taskId: string;
+  status?: 'pending' | 'in_progress' | 'completed';
+  subject?: string;
+  description?: string;
+  activeForm?: string;
+}
+
+interface TaskToolResult {
+  task?: {
+    id: string;
+    subject?: string;
+  };
 }
 
 // =============================================================================
@@ -41,6 +64,12 @@ interface RawContentBlock {
   input?: unknown;
 }
 
+interface RawToolResultBlock {
+  type: 'tool_result';
+  tool_use_id: string;
+  content?: string;
+}
+
 interface RawAssistantMessage {
   type: 'assistant';
   uuid: string;
@@ -50,10 +79,32 @@ interface RawAssistantMessage {
   };
 }
 
+interface RawUserMessage {
+  type: 'user';
+  uuid: string;
+  timestamp: string;
+  message: {
+    content: (RawContentBlock | RawToolResultBlock)[];
+  };
+  /** Task tool results contain the task data here, not in message.content */
+  toolUseResult?: {
+    task?: {
+      id: string;
+      subject?: string;
+    };
+  };
+}
+
 function isAssistantMessage(payload: unknown): payload is RawAssistantMessage {
   if (!payload || typeof payload !== 'object') return false;
   const p = payload as Record<string, unknown>;
   return p.type === 'assistant' && typeof p.uuid === 'string';
+}
+
+function isUserMessage(payload: unknown): payload is RawUserMessage {
+  if (!payload || typeof payload !== 'object') return false;
+  const p = payload as Record<string, unknown>;
+  return p.type === 'user' && typeof p.uuid === 'string';
 }
 
 function isTodoWriteBlock(block: RawContentBlock): boolean {
@@ -64,24 +115,52 @@ function isExitPlanModeBlock(block: RawContentBlock): boolean {
   return block.type === 'tool_use' && block.name === 'ExitPlanMode';
 }
 
+function isTaskCreateBlock(block: RawContentBlock): boolean {
+  return block.type === 'tool_use' && block.name === 'TaskCreate';
+}
+
+function isTaskUpdateBlock(block: RawContentBlock): boolean {
+  return block.type === 'tool_use' && block.name === 'TaskUpdate';
+}
+
+function isToolResultBlock(block: RawContentBlock | RawToolResultBlock): block is RawToolResultBlock {
+  return block.type === 'tool_result' && 'tool_use_id' in block;
+}
+
+function parseToolResultContent(content: string | undefined): TaskToolResult | null {
+  if (!content) return null;
+  try {
+    return JSON.parse(content) as TaskToolResult;
+  } catch {
+    return null;
+  }
+}
+
 // =============================================================================
-// Extraction Functions
+// Helper Extraction Functions
 // =============================================================================
 
 /**
- * Extract artifacts from a batch of raw JSONL envelopes.
- * Returns one artifact per type per session (latest wins).
- *
- * @param envelopes - Raw message envelopes from Socket.IO
- * @param provider - Provider name (e.g., 'claude')
- * @returns Array of extracted artifacts
+ * Group envelopes by session ID for processing.
  */
-export function extractArtifactsFromRawBatch(
+function groupBySession(envelopes: RawMessageEnvelope[]): Map<string, RawMessageEnvelope[]> {
+  const grouped = new Map<string, RawMessageEnvelope[]>();
+  for (const envelope of envelopes) {
+    const existing = grouped.get(envelope.sessionId) ?? [];
+    existing.push(envelope);
+    grouped.set(envelope.sessionId, existing);
+  }
+  return grouped;
+}
+
+/**
+ * Extract todos from TodoWrite tool calls (legacy support).
+ */
+function extractTodosFromTodoWrite(
   envelopes: RawMessageEnvelope[],
-  provider: string = 'claude'
-): ExtractedArtifact[] {
-  // Track latest artifact per session per type
-  const artifactMap = new Map<string, ExtractedArtifact>();
+  provider: string
+): Map<string, ExtractedArtifact> {
+  const result = new Map<string, ExtractedArtifact>();
 
   for (const envelope of envelopes) {
     const { sessionId, payload } = envelope;
@@ -94,12 +173,11 @@ export function extractArtifactsFromRawBatch(
     const contentBlocks = message?.content ?? [];
 
     for (const block of contentBlocks) {
-      // Extract TodoWrite artifacts
       if (isTodoWriteBlock(block)) {
         const input = block.input as { todos?: TodoItem[] } | undefined;
         if (input?.todos && Array.isArray(input.todos)) {
           const artifactId = `${sessionId}:todos`;
-          artifactMap.set(artifactId, {
+          result.set(artifactId, {
             id: artifactId,
             sessionId,
             type: 'todos',
@@ -109,14 +187,163 @@ export function extractArtifactsFromRawBatch(
           });
         }
       }
+    }
+  }
 
-      // Extract ExitPlanMode artifacts
+  return result;
+}
+
+/**
+ * Extract tasks from TaskCreate/TaskUpdate tool calls (new task tools).
+ * Processes all messages in order to build up the task list state.
+ */
+function extractTasksFromTaskTools(
+  envelopes: RawMessageEnvelope[],
+  provider: string
+): Map<string, ExtractedArtifact> {
+  const result = new Map<string, ExtractedArtifact>();
+  const sessionEnvelopes = groupBySession(envelopes);
+
+  for (const [sessionId, sessionMessages] of sessionEnvelopes) {
+    // Step 1: Collect TaskCreate calls with their tool_use_id
+    // Maps tool_use_id -> TaskCreate input data
+    const taskCreates = new Map<string, { input: TaskCreateInput; messageId: string }>();
+
+    // Step 2: Maps tool_use_id -> assigned task ID from tool_result
+    const toolUseIdToTaskId = new Map<string, string>();
+
+    // Step 3: Build task list (taskId -> TodoItem)
+    const tasks = new Map<string, TodoItem>();
+
+    // Track the latest message ID that modified the task list
+    let latestMessageId = '';
+
+    // First pass: collect TaskCreate blocks and their tool_use_ids
+    for (const envelope of sessionMessages) {
+      const { payload } = envelope;
+
+      if (isAssistantMessage(payload)) {
+        const { uuid: messageId, message } = payload;
+        const contentBlocks = message?.content ?? [];
+
+        for (const block of contentBlocks) {
+          if (isTaskCreateBlock(block) && block.id) {
+            const input = block.input as TaskCreateInput | undefined;
+            if (input?.subject) {
+              taskCreates.set(block.id, { input, messageId });
+            }
+          }
+        }
+      }
+    }
+
+    // Second pass: match tool_results to get assigned task IDs
+    for (const envelope of sessionMessages) {
+      const { payload } = envelope;
+
+      if (isUserMessage(payload)) {
+        const { message, toolUseResult } = payload;
+        const contentBlocks = message?.content ?? [];
+
+        for (const block of contentBlocks) {
+          if (isToolResultBlock(block)) {
+            const toolUseId = block.tool_use_id;
+            // Only process if this is a result for a TaskCreate we tracked
+            if (taskCreates.has(toolUseId)) {
+              // Task data is in payload.toolUseResult, not block.content
+              if (toolUseResult?.task?.id) {
+                toolUseIdToTaskId.set(toolUseId, toolUseResult.task.id);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Third pass: build initial task list from TaskCreate + matched IDs
+    for (const [toolUseId, { input, messageId }] of taskCreates) {
+      const taskId = toolUseIdToTaskId.get(toolUseId);
+      if (taskId) {
+        tasks.set(taskId, {
+          id: taskId,
+          content: input.subject,
+          status: 'pending',
+          activeForm: input.activeForm,
+        });
+        latestMessageId = messageId;
+      }
+    }
+
+    // Fourth pass: apply TaskUpdate status changes
+    for (const envelope of sessionMessages) {
+      const { payload } = envelope;
+
+      if (isAssistantMessage(payload)) {
+        const { uuid: messageId, message } = payload;
+        const contentBlocks = message?.content ?? [];
+
+        for (const block of contentBlocks) {
+          if (isTaskUpdateBlock(block)) {
+            const input = block.input as TaskUpdateInput | undefined;
+            if (input?.taskId && tasks.has(input.taskId)) {
+              const task = tasks.get(input.taskId)!;
+              if (input.status) {
+                task.status = input.status;
+              }
+              if (input.subject) {
+                task.content = input.subject;
+              }
+              if (input.activeForm) {
+                task.activeForm = input.activeForm;
+              }
+              latestMessageId = messageId;
+            }
+          }
+        }
+      }
+    }
+
+    // Step 5: Convert to artifact if we have tasks
+    if (tasks.size > 0) {
+      const artifactId = `${sessionId}:todos`;
+      result.set(artifactId, {
+        id: artifactId,
+        sessionId,
+        type: 'todos',
+        provider,
+        content: JSON.stringify(Array.from(tasks.values())),
+        sourceMessageId: latestMessageId,
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Extract plans from ExitPlanMode tool calls.
+ */
+function extractPlansFromExitPlanMode(
+  envelopes: RawMessageEnvelope[],
+  provider: string
+): Map<string, ExtractedArtifact> {
+  const result = new Map<string, ExtractedArtifact>();
+
+  for (const envelope of envelopes) {
+    const { sessionId, payload } = envelope;
+
+    if (!isAssistantMessage(payload)) {
+      continue;
+    }
+
+    const { uuid: messageId, message } = payload;
+    const contentBlocks = message?.content ?? [];
+
+    for (const block of contentBlocks) {
       if (isExitPlanModeBlock(block)) {
         const input = block.input as { plan?: string; allowedPrompts?: unknown[] } | undefined;
-        // ExitPlanMode may have allowedPrompts but no plan content
-        // We still want to track it as a plan artifact if it exists
         const artifactId = `${sessionId}:plan`;
-        artifactMap.set(artifactId, {
+        result.set(artifactId, {
           id: artifactId,
           sessionId,
           type: 'plan',
@@ -129,6 +356,50 @@ export function extractArtifactsFromRawBatch(
         });
       }
     }
+  }
+
+  return result;
+}
+
+// =============================================================================
+// Main Extraction Function
+// =============================================================================
+
+/**
+ * Extract artifacts from a batch of raw JSONL envelopes.
+ * Returns one artifact per type per session (latest wins).
+ *
+ * Supports:
+ * - TodoWrite (legacy) - replaces entire todo list
+ * - TaskCreate/TaskUpdate (new) - incremental task management
+ * - ExitPlanMode - plan artifacts
+ *
+ * @param envelopes - Raw message envelopes from Socket.IO
+ * @param provider - Provider name (e.g., 'claude')
+ * @returns Array of extracted artifacts
+ */
+export function extractArtifactsFromRawBatch(
+  envelopes: RawMessageEnvelope[],
+  provider: string = 'claude'
+): ExtractedArtifact[] {
+  const artifactMap = new Map<string, ExtractedArtifact>();
+
+  // Extract from legacy TodoWrite (backward compatibility)
+  const todoWriteArtifacts = extractTodosFromTodoWrite(envelopes, provider);
+  for (const [key, artifact] of todoWriteArtifacts) {
+    artifactMap.set(key, artifact);
+  }
+
+  // Extract from new TaskCreate/TaskUpdate (takes precedence over TodoWrite)
+  const taskArtifacts = extractTasksFromTaskTools(envelopes, provider);
+  for (const [key, artifact] of taskArtifacts) {
+    artifactMap.set(key, artifact);
+  }
+
+  // Extract plans from ExitPlanMode
+  const planArtifacts = extractPlansFromExitPlanMode(envelopes, provider);
+  for (const [key, artifact] of planArtifacts) {
+    artifactMap.set(key, artifact);
   }
 
   return Array.from(artifactMap.values());
@@ -154,4 +425,91 @@ export function parsePlanContent(content: string): { plan: string | null; allowe
   } catch {
     return { plan: null, allowedPrompts: [] };
   }
+}
+
+/**
+ * Extracted TaskUpdate info for merging with existing artifacts.
+ */
+export interface TaskUpdateInfo {
+  sessionId: string;
+  taskId: string;
+  status?: 'pending' | 'in_progress' | 'completed';
+  subject?: string;
+  activeForm?: string;
+}
+
+/**
+ * Extract TaskUpdate calls from a batch (without requiring TaskCreate).
+ * Used for merging updates into existing artifacts.
+ */
+export function extractTaskUpdatesFromBatch(
+  envelopes: RawMessageEnvelope[]
+): TaskUpdateInfo[] {
+  const updates: TaskUpdateInfo[] = [];
+
+  for (const envelope of envelopes) {
+    const { sessionId, payload } = envelope;
+
+    if (!isAssistantMessage(payload)) {
+      continue;
+    }
+
+    const { message } = payload;
+    const contentBlocks = message?.content ?? [];
+
+    for (const block of contentBlocks) {
+      if (isTaskUpdateBlock(block)) {
+        const input = block.input as TaskUpdateInput | undefined;
+        if (input?.taskId) {
+          updates.push({
+            sessionId,
+            taskId: input.taskId,
+            status: input.status,
+            subject: input.subject,
+            activeForm: input.activeForm,
+          });
+        }
+      }
+    }
+  }
+
+  return updates;
+}
+
+/**
+ * Apply TaskUpdate changes to existing todos.
+ * Returns updated todos array, or null if no changes were made.
+ */
+export function applyTaskUpdatesToTodos(
+  existingTodos: TodoItem[],
+  updates: TaskUpdateInfo[]
+): TodoItem[] | null {
+  if (updates.length === 0) {
+    return null;
+  }
+
+  let modified = false;
+  const todos = existingTodos.map((todo) => ({ ...todo }));
+
+  for (const update of updates) {
+    // Find task by ID
+    const index = todos.findIndex((t) => t.id === update.taskId);
+    if (index >= 0) {
+      const task = todos[index];
+      if (update.status && task.status !== update.status) {
+        task.status = update.status;
+        modified = true;
+      }
+      if (update.subject && task.content !== update.subject) {
+        task.content = update.subject;
+        modified = true;
+      }
+      if (update.activeForm && task.activeForm !== update.activeForm) {
+        task.activeForm = update.activeForm;
+        modified = true;
+      }
+    }
+  }
+
+  return modified ? todos : null;
 }

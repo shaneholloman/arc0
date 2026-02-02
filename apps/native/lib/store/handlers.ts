@@ -25,7 +25,13 @@ import {
   type PermissionRequestLine,
   type SessionNameUpdate,
 } from '../socket/transformer';
-import { extractArtifactsFromRawBatch, type ExtractedArtifact } from '../socket/artifact-extractor';
+import {
+  extractArtifactsFromRawBatch,
+  extractTaskUpdatesFromBatch,
+  applyTaskUpdatesToTodos,
+  parseTodosContent,
+  type ExtractedArtifact,
+} from '../socket/artifact-extractor';
 import { executeStatement, getDbInstance, withTransaction } from './persister';
 import { upsertArtifactToStore, writeArtifactsToSQLite } from './artifacts-loader';
 import { computeSessionStatus } from './status';
@@ -477,6 +483,10 @@ async function handleMessagesBatchInternal(
   // 8. Update artifacts in TinyBase if viewing the session
   updateArtifactsInStore(store, artifacts);
 
+  // 9. Merge TaskUpdate changes into existing todos artifacts
+  // This handles TaskUpdate in a different batch than TaskCreate
+  mergeTaskUpdatesIntoArtifacts(store, rawEnvelopes);
+
   // Get last message for acknowledgment
   const lastInfo = getLastMessageInfo(rawEnvelopes);
 
@@ -856,6 +866,9 @@ function updatePendingPermissions(
  * Web: Write all artifacts (OPFS persists entire store)
  * Native: Write only active session artifacts (loaded on-demand from SQLite)
  * SQLite writes are handled earlier in the batch to avoid nested transactions.
+ *
+ * For todos artifacts, merges new tasks with existing ones (accumulation).
+ * For other artifacts, replaces the content.
  */
 function updateArtifactsInStore(store: Store, artifacts: ExtractedArtifact[]): void {
   if (artifacts.length === 0) {
@@ -867,12 +880,123 @@ function updateArtifactsInStore(store: Store, artifacts: ExtractedArtifact[]): v
   for (const artifact of artifacts) {
     // Web: Write all artifacts (no SQLite fallback)
     // Native: Only write for active session (loaded from SQLite on demand)
-    if (Platform.OS === 'web' || artifact.sessionId === activeSessionId) {
-      upsertArtifactToStore(store, artifact);
-      debugLog('artifacts', 'updated TinyBase', {
-        artifactId: artifact.id,
-        sessionId: artifact.sessionId,
-        platform: Platform.OS,
+    if (Platform.OS !== 'web' && artifact.sessionId !== activeSessionId) {
+      continue;
+    }
+
+    // For todos artifacts from TaskCreate, merge new tasks with existing ones
+    // TodoWrite (no IDs) uses replace semantics, TaskCreate (has IDs) uses accumulation
+    if (artifact.type === 'todos') {
+      const newTodos = parseTodosContent(artifact.content);
+      const hasIds = newTodos.some((t) => t.id);
+
+      // Only merge if new todos have IDs (TaskCreate) and existing artifact exists
+      if (hasIds) {
+        const existingRow = store.getRow('artifacts', artifact.id);
+        if (existingRow && Object.keys(existingRow).length > 0) {
+          const existingContent = existingRow.content as string | undefined;
+          if (existingContent) {
+            const existingTodos = parseTodosContent(existingContent);
+
+            // Merge: add new tasks that don't exist (by ID)
+            const existingIds = new Set(existingTodos.map((t) => t.id).filter(Boolean));
+            const mergedTodos = [...existingTodos];
+
+            for (const newTodo of newTodos) {
+              if (newTodo.id && !existingIds.has(newTodo.id)) {
+                mergedTodos.push(newTodo);
+              }
+            }
+
+            // Update with merged content
+            store.setPartialRow('artifacts', artifact.id, {
+              content: JSON.stringify(mergedTodos),
+              source_message_id: artifact.sourceMessageId,
+              updated_at: new Date().toISOString(),
+            });
+
+            debugLog('artifacts', 'merged todos into existing', {
+              artifactId: artifact.id,
+              existingCount: existingTodos.length,
+              newCount: newTodos.length,
+              mergedCount: mergedTodos.length,
+            });
+            continue;
+          }
+        }
+      }
+      // TodoWrite (no IDs) falls through to full upsert (replace semantics)
+    }
+
+    // For non-todos or no existing artifact, do a full upsert
+    upsertArtifactToStore(store, artifact);
+    debugLog('artifacts', 'updated TinyBase', {
+      artifactId: artifact.id,
+      sessionId: artifact.sessionId,
+      platform: Platform.OS,
+    });
+  }
+}
+
+/**
+ * Merge TaskUpdate changes into existing todos artifacts.
+ * This handles the case where TaskUpdate comes in a different batch than TaskCreate.
+ */
+function mergeTaskUpdatesIntoArtifacts(
+  store: Store,
+  envelopes: RawMessageEnvelope[]
+): void {
+  const taskUpdates = extractTaskUpdatesFromBatch(envelopes);
+  if (taskUpdates.length === 0) {
+    return;
+  }
+
+  const activeSessionId = store.getValue('active_session_id') as string;
+
+  // Group updates by session
+  const updatesBySession = new Map<string, typeof taskUpdates>();
+  for (const update of taskUpdates) {
+    const existing = updatesBySession.get(update.sessionId) ?? [];
+    existing.push(update);
+    updatesBySession.set(update.sessionId, existing);
+  }
+
+  for (const [sessionId, updates] of updatesBySession) {
+    // Only process for relevant sessions
+    if (Platform.OS !== 'web' && sessionId !== activeSessionId) {
+      continue;
+    }
+
+    const artifactId = `${sessionId}:todos`;
+    const existingRow = store.getRow('artifacts', artifactId);
+
+    if (!existingRow || Object.keys(existingRow).length === 0) {
+      // No existing todos artifact to merge into
+      continue;
+    }
+
+    const existingContent = existingRow.content as string | undefined;
+    if (!existingContent) {
+      continue;
+    }
+
+    const existingTodos = parseTodosContent(existingContent);
+    if (existingTodos.length === 0) {
+      continue;
+    }
+
+    const mergedTodos = applyTaskUpdatesToTodos(existingTodos, updates);
+    if (mergedTodos) {
+      // Update the artifact with merged todos
+      store.setPartialRow('artifacts', artifactId, {
+        content: JSON.stringify(mergedTodos),
+        updated_at: new Date().toISOString(),
+      });
+
+      debugLog('artifacts', 'merged TaskUpdate into existing todos', {
+        artifactId,
+        sessionId,
+        updatesApplied: updates.length,
       });
     }
   }
