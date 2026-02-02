@@ -2,7 +2,8 @@ import '@/global.css';
 
 import { useEffect } from 'react';
 import { Platform, View } from 'react-native';
-import { useFonts, Audiowide_400Regular } from '@expo-google-fonts/audiowide';
+import { useFonts, Geist_400Regular } from '@expo-google-fonts/geist';
+import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono';
 import { PostHogErrorBoundary, PostHogProvider } from '@/lib/analytics';
 import { StatsigProvider } from '@/lib/statsig';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
@@ -87,7 +88,8 @@ function RootStack({ theme }: { theme: 'light' | 'dark' | undefined }) {
 export default function RootLayout() {
   const { theme } = useUniwind();
   const [fontsLoaded] = useFonts({
-    Audiowide_400Regular,
+    Geist_400Regular,
+    GeistMono_400Regular,
   });
 
   // Hide splash screen when fonts are loaded
