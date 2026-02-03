@@ -883,6 +883,43 @@ function updatePendingPermissions(
 
     // Then, set new pending permissions
     for (const [sessionId, request] of permissionRequests) {
+      // If a tool_result for this toolUseId is in the same batch, ignore this request.
+      // This can happen with out-of-order delivery (separate watchers) or reconnect replays.
+      const resolvedInBatch = resolvedToolUseIds.get(sessionId);
+      if (resolvedInBatch?.has(request.toolUseId)) {
+        debugLog('permissions', 'ignored resolved permission request', {
+          sessionId,
+          toolUseId: request.toolUseId,
+          toolName: request.toolName,
+        });
+        continue;
+      }
+
+      // Prevent stale/out-of-order permission events from overwriting newer pending state.
+      // Keep the newest permission_request per session by comparing ISO timestamps.
+      const session = store.getRow('sessions', sessionId);
+      const existingJson = session?.pending_permission as string | undefined;
+      if (existingJson) {
+        try {
+          const existing = JSON.parse(existingJson) as { timestamp?: unknown };
+          if (
+            typeof existing.timestamp === 'string' &&
+            existing.timestamp.localeCompare(request.timestamp) > 0
+          ) {
+            debugLog('permissions', 'ignored stale permission request', {
+              sessionId,
+              toolUseId: request.toolUseId,
+              toolName: request.toolName,
+              existingTs: existing.timestamp,
+              incomingTs: request.timestamp,
+            });
+            continue;
+          }
+        } catch {
+          // If existing JSON is invalid, we'll overwrite it below.
+        }
+      }
+
       // Store the pending permission as JSON in the session row
       store.setPartialRow('sessions', sessionId, {
         pending_permission: JSON.stringify({

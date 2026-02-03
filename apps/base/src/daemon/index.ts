@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { RawMessageEnvelope } from "@arc0/types";
 import { ControlServer, SocketServer } from "./server.js";
 import { createActionHandlers } from "./actions.js";
@@ -23,6 +25,7 @@ import {
   loadConfig,
   getPreferredPorts,
   savePreferredPorts,
+  SESSIONS_DIR,
   type Arc0Config,
   type SessionFile,
   type SessionData,
@@ -61,6 +64,90 @@ function linesToEnvelopes(
     sessionId,
     payload: line.raw,
   }));
+}
+
+function getPayloadTimestamp(payload: unknown): string {
+  if (!payload || typeof payload !== "object") return "";
+  const maybeTimestamp = (payload as { timestamp?: unknown }).timestamp;
+  return typeof maybeTimestamp === "string" ? maybeTimestamp : "";
+}
+
+/**
+ * Read the most recent permission_request event for a session (if any).
+ * Used for reconnect/initial sync so clients don't miss pending approvals.
+ */
+function readLatestPermissionRequestEnvelope(
+  sessionId: string,
+): RawMessageEnvelope[] {
+  const eventsPath = join(SESSIONS_DIR, `${sessionId}.events.jsonl`);
+  if (!existsSync(eventsPath)) return [];
+
+  try {
+    const content = readFileSync(eventsPath, "utf-8");
+    const lines = content.split("\n").filter((line) => line.trim());
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const line = lines[i];
+        if (!line) continue;
+        const event = JSON.parse(line) as unknown;
+        if (
+          event &&
+          typeof event === "object" &&
+          (event as { type?: unknown }).type === "permission_request" &&
+          typeof (event as { toolUseId?: unknown }).toolUseId === "string" &&
+          typeof (event as { timestamp?: unknown }).timestamp === "string"
+        ) {
+          return [{ sessionId, payload: event }];
+        }
+      } catch {
+        // Invalid JSON line, skip
+      }
+    }
+  } catch {
+    // File unreadable, ignore
+  }
+
+  return [];
+}
+
+/**
+ * Merge two already timestamp-ordered envelope lists into one.
+ * Tie-breaker: transcript envelopes first when timestamps are equal.
+ */
+function mergeEnvelopesByTimestamp(
+  transcript: RawMessageEnvelope[],
+  events: RawMessageEnvelope[],
+): RawMessageEnvelope[] {
+  const merged: RawMessageEnvelope[] = [];
+  let i = 0;
+  let j = 0;
+
+  while (i < transcript.length && j < events.length) {
+    const a = transcript[i]!;
+    const b = events[j]!;
+
+    const aTs = getPayloadTimestamp(a.payload);
+    const bTs = getPayloadTimestamp(b.payload);
+
+    if (aTs.localeCompare(bTs) <= 0) {
+      merged.push(a);
+      i++;
+    } else {
+      merged.push(b);
+      j++;
+    }
+  }
+
+  while (i < transcript.length) {
+    merged.push(transcript[i]!);
+    i++;
+  }
+  while (j < events.length) {
+    merged.push(events[j]!);
+    j++;
+  }
+
+  return merged;
 }
 
 async function main() {
@@ -187,12 +274,21 @@ async function main() {
     for (const session of activeSessions) {
       const lastTs = cursorMap.get(session.sessionId) ?? "";
       const lines = jsonlWatcher.getLinesSince(session.sessionId, lastTs);
+      const permissionEnvelopes = readLatestPermissionRequestEnvelope(
+        session.sessionId,
+      );
 
-      if (lines.length > 0) {
+      const transcriptEnvelopes = linesToEnvelopes(session.sessionId, lines);
+      const envelopes = mergeEnvelopesByTimestamp(
+        transcriptEnvelopes,
+        permissionEnvelopes,
+      );
+
+      if (envelopes.length > 0) {
         // Wait for ack before sending next session's batch
         await socketServer.sendMessagesBatchToClientAsync(socketId, {
           workstationId,
-          messages: linesToEnvelopes(session.sessionId, lines),
+          messages: envelopes,
           batchId: randomUUID(),
         });
       }

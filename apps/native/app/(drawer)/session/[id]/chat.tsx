@@ -16,7 +16,11 @@ import { useUserActions } from '@/lib/contexts/UserActionsContext';
 import { useMessages, useSession } from '@/lib/store/hooks';
 import { useStoreContext } from '@/lib/store/provider';
 import type { Message, PendingPermission, RenderableMessage } from '@/lib/types/session';
-import { findLatestPendingTool, isNonInteractiveTool } from '@/lib/utils/tool-state';
+import {
+  deriveToolState,
+  findLatestPendingTool,
+  isNonInteractiveTool,
+} from '@/lib/utils/tool-state';
 import type { ModelId, PromptMode, AnswerItem, ToolResponse } from '@arc0/types';
 import { useGlobalSearchParams, useLocalSearchParams } from 'expo-router';
 import { MessageSquareIcon } from 'lucide-react-native';
@@ -49,43 +53,50 @@ function findPendingInteractiveTool(
 ): PendingInteractiveTool | null {
   if (messages.length === 0) return null;
 
-  const pendingTool = findLatestPendingTool(messages);
-  if (!pendingTool) return null;
+  const { pendingToolUses } = deriveToolState(messages);
+  if (pendingToolUses.length === 0) return null;
 
-  const toolUse = pendingTool.block;
+  // Walk backward from latest pending tool_use, skipping non-interactive tools.
+  // For permission-gated tools, only show prompt when we have an explicit permission_request
+  // that matches the toolUseId. If the newest pending tool_use needs permission but we don't
+  // have a matching permission_request yet, return null (don't fall back to older tools).
+  for (let i = pendingToolUses.length - 1; i >= 0; i--) {
+    const toolUse = pendingToolUses[i].block;
 
-  // AskUserQuestion is always interactive (handled via tool input, not permission hook)
-  if (toolUse.name === 'AskUserQuestion' && toolUse.input?.questions) {
-    return {
-      type: 'AskUserQuestion',
-      questions: toolUse.input.questions as Question[],
-      toolUseId: toolUse.id,
-    };
-  }
+    // AskUserQuestion is always interactive (handled via tool input, not permission hook)
+    if (toolUse.name === 'AskUserQuestion' && toolUse.input?.questions) {
+      return {
+        type: 'AskUserQuestion',
+        questions: toolUse.input.questions as Question[],
+        toolUseId: toolUse.id,
+      };
+    }
 
-  // ExitPlanMode is always interactive (plan approval)
-  if (toolUse.name === 'ExitPlanMode') {
-    return {
-      type: 'ExitPlanMode',
-      planFilePath: toolUse.input?.planFilePath as string | undefined,
-      toolUseId: toolUse.id,
-    };
-  }
+    // ExitPlanMode is always interactive (plan approval)
+    if (toolUse.name === 'ExitPlanMode') {
+      return {
+        type: 'ExitPlanMode',
+        planFilePath: toolUse.input?.planFilePath as string | undefined,
+        toolUseId: toolUse.id,
+      };
+    }
 
-  // Non-interactive tools never need approval
-  if (isNonInteractiveTool(toolUse.name)) {
+    // Non-interactive tools never need approval; skip and keep looking.
+    if (isNonInteractiveTool(toolUse.name)) {
+      continue;
+    }
+
+    // For other tools, only show permission prompt if daemon sent explicit permission_request.
+    if (pendingPermission && pendingPermission.toolUseId === toolUse.id) {
+      return {
+        type: 'ToolPermission',
+        toolName: pendingPermission.toolName,
+        toolUseId: pendingPermission.toolUseId,
+        input: pendingPermission.toolInput,
+      };
+    }
+
     return null;
-  }
-
-  // For other tools, only show permission prompt if daemon sent explicit permission_request
-  // This prevents showing prompts for tools that don't need approval
-  if (pendingPermission && pendingPermission.toolUseId === toolUse.id) {
-    return {
-      type: 'ToolPermission',
-      toolName: pendingPermission.toolName,
-      toolUseId: pendingPermission.toolUseId,
-      input: pendingPermission.toolInput,
-    };
   }
 
   return null;

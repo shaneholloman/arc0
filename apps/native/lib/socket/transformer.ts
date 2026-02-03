@@ -149,7 +149,16 @@ export interface PermissionRequestLine {
 export function isPermissionRequestLine(payload: unknown): payload is PermissionRequestLine {
   if (!payload || typeof payload !== 'object') return false;
   const p = payload as Record<string, unknown>;
-  return p.type === 'permission_request' && typeof p.toolUseId === 'string';
+  return (
+    p.type === 'permission_request' &&
+    typeof p.toolUseId === 'string' &&
+    typeof p.toolName === 'string' &&
+    typeof p.permissionMode === 'string' &&
+    typeof p.timestamp === 'string' &&
+    !!p.toolInput &&
+    typeof p.toolInput === 'object' &&
+    !Array.isArray(p.toolInput)
+  );
 }
 
 // =============================================================================
@@ -520,8 +529,11 @@ export function extractPermissionRequests(
 
   for (const envelope of envelopes) {
     if (isPermissionRequestLine(envelope.payload)) {
-      // Store by sessionId - only keep latest per session
-      requests.set(envelope.sessionId, envelope.payload);
+      // Store by sessionId - only keep newest by timestamp (ISO strings compare lexicographically)
+      const existing = requests.get(envelope.sessionId);
+      if (!existing || existing.timestamp.localeCompare(envelope.payload.timestamp) <= 0) {
+        requests.set(envelope.sessionId, envelope.payload);
+      }
       debugLog('transform', 'permission request extracted', {
         sessionId: envelope.sessionId,
         toolUseId: envelope.payload.toolUseId,
