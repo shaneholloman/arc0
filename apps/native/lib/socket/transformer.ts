@@ -661,6 +661,33 @@ function extractForMetadata(envelope: RawMessageEnvelope): MessageForMetadata | 
     return null;
   }
 
+  // Skip meta lines (caveat messages)
+  if (isMetaLine(raw)) {
+    return null;
+  }
+
+  if (raw.type === 'user') {
+    // Extract text content for local-command detection (e.g. /clear)
+    const textContent =
+      typeof raw.message.content === 'string'
+        ? raw.message.content
+        : Array.isArray(raw.message.content)
+          ? raw.message.content
+              .filter(
+                (b): b is { type: 'text'; text: string } =>
+                  (b as { type?: string })?.type === 'text'
+              )
+              .map((b) => b.text)
+              .join('\n')
+          : '';
+
+    // Skip local command lines and their output lines so they don't become first_message.
+    // These are stored/displayed as system messages, not real conversation.
+    if (parseLocalCommand(textContent) || parseCommandOutput(textContent)) {
+      return null;
+    }
+  }
+
   return {
     sessionId: envelope.sessionId,
     timestamp: raw.timestamp,
