@@ -7,13 +7,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { useTable } from 'tinybase/ui-react';
-import type {
-  ActionResult,
-  ModelId,
-  PromptMode,
-  ProviderId,
-  ToolResponse,
-} from '@arc0/types';
+import type { ActionResult, ModelId, PromptMode, ProviderId, ToolResponse } from '@arc0/types';
 import * as socketActions from '@/lib/socket/actions';
 
 // =============================================================================
@@ -138,15 +132,12 @@ export function UserActionsProvider({ children }: UserActionsProviderProps) {
   );
 
   // Helper to update action state
-  const updateActionState = useCallback(
-    (action: ActionName, updates: Partial<ActionState>) => {
-      setActionStates((prev) => ({
-        ...prev,
-        [action]: { ...prev[action], ...updates },
-      }));
-    },
-    []
-  );
+  const updateActionState = useCallback((action: ActionName, updates: Partial<ActionState>) => {
+    setActionStates((prev) => ({
+      ...prev,
+      [action]: { ...prev[action], ...updates },
+    }));
+  }, []);
 
   // Clear error for an action
   const clearError = useCallback(
@@ -221,7 +212,11 @@ export function UserActionsProvider({ children }: UserActionsProviderProps) {
         return errorResult;
       }
 
-      updateActionState('sendPrompt', { isLoading: true, error: null, sessionId: params.sessionId });
+      updateActionState('sendPrompt', {
+        isLoading: true,
+        error: null,
+        sessionId: params.sessionId,
+      });
       try {
         const result = await socketActions.sendPrompt(workstationId, params);
         updateActionState('sendPrompt', {
@@ -316,7 +311,11 @@ export function UserActionsProvider({ children }: UserActionsProviderProps) {
         return errorResult;
       }
 
-      updateActionState('approveToolUse', { isLoading: true, error: null, sessionId: params.sessionId });
+      updateActionState('approveToolUse', {
+        isLoading: true,
+        error: null,
+        sessionId: params.sessionId,
+      });
       try {
         const result = await socketActions.approveToolUse(workstationId, params);
         updateActionState('approveToolUse', {

@@ -7,10 +7,10 @@
  * These are removed to show more relevant parts of the path.
  */
 const USER_DIR_PATTERNS = [
-  /^\/Users\/[^/]+\//,      // macOS: /Users/<username>/
-  /^\/home\/[^/]+\//,       // Linux: /home/<username>/
-  /^C:\\Users\\[^\\]+\\/i,  // Windows: C:\Users\<username>\
-  /^~\//,                   // Home shortcut: ~/
+  /^\/Users\/[^/]+\//, // macOS: /Users/<username>/
+  /^\/home\/[^/]+\//, // Linux: /home/<username>/
+  /^C:\\Users\\[^\\]+\\/i, // Windows: C:\Users\<username>\
+  /^~\//, // Home shortcut: ~/
 ];
 
 /**

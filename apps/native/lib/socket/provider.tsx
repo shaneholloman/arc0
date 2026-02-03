@@ -18,7 +18,14 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { useStore, useTable, useValue } from 'tinybase/ui-react';
 import { generateProjectId, handleMessagesBatch, handleSessionsSync } from '../store/handlers';
 import { useStoreContext } from '../store/provider';
-import { getWorkstationSecret, setWorkstationSecret, deleteWorkstationSecret, setWorkstationEncryptionKey, deleteWorkstationEncryptionKey, getWorkstationEncryptionKey } from '../settings/workstations';
+import {
+  getWorkstationSecret,
+  setWorkstationSecret,
+  deleteWorkstationSecret,
+  setWorkstationEncryptionKey,
+  deleteWorkstationEncryptionKey,
+  getWorkstationEncryptionKey,
+} from '../settings/workstations';
 import { getSocketManager } from './manager';
 import type {
   ConnectionState,
@@ -56,9 +63,18 @@ interface SocketContextValue {
   /** Reconnect to all enabled workstations */
   reconnectAll: () => Promise<void>;
   /** Add a new workstation (workstationId comes from Base via pairing) */
-  addWorkstation: (workstationId: string, name: string, url: string, authToken: string, encryptionKey?: string) => Promise<void>;
+  addWorkstation: (
+    workstationId: string,
+    name: string,
+    url: string,
+    authToken: string,
+    encryptionKey?: string
+  ) => Promise<void>;
   /** Update a workstation */
-  updateWorkstation: (id: string, updates: { name?: string; url?: string; secret?: string; enabled?: boolean }) => Promise<void>;
+  updateWorkstation: (
+    id: string,
+    updates: { name?: string; url?: string; secret?: string; enabled?: boolean }
+  ) => Promise<void>;
   /** Remove a workstation */
   removeWorkstation: (id: string) => Promise<void>;
   /** Set the active workstation */
@@ -167,13 +183,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
     }
 
     return { status: 'disconnected' };
-  }, [
-    activeWorkstationId,
-    allConnectionStates,
-    autoConnect,
-    storeReady,
-    workstationsTable,
-  ]);
+  }, [activeWorkstationId, allConnectionStates, autoConnect, storeReady, workstationsTable]);
 
   // Count background connected workstations (excluding active)
   const backgroundConnectedCount = useMemo(() => {
@@ -295,7 +305,13 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
   // ==========================================================================
 
   const addWorkstation = useCallback(
-    async (workstationId: string, name: string, url: string, authToken: string, encryptionKey?: string): Promise<void> => {
+    async (
+      workstationId: string,
+      name: string,
+      url: string,
+      authToken: string,
+      encryptionKey?: string
+    ): Promise<void> => {
       if (!store) throw new Error('Store not ready');
 
       const now = new Date().toISOString();
@@ -438,10 +454,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
         string,
         { workstation_id?: string }
       >;
-      const messagesTable = store.getTable('messages') as Record<
-        string,
-        { session_id?: string }
-      >;
+      const messagesTable = store.getTable('messages') as Record<string, { session_id?: string }>;
       const projectsTable = store.getTable('projects') as Record<
         string,
         { workstation_id?: string }
@@ -460,10 +473,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       }
 
       // Delete artifacts for those sessions
-      const artifactsTable = store.getTable('artifacts') as Record<
-        string,
-        { session_id?: string }
-      >;
+      const artifactsTable = store.getTable('artifacts') as Record<string, { session_id?: string }>;
       for (const [artifactId, row] of Object.entries(artifactsTable)) {
         if (row.session_id && sessionIds.includes(row.session_id)) {
           store.delRow('artifacts', artifactId);
@@ -488,18 +498,12 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       // Delete from SQLite (native only) - messages/artifacts don't have AutoSave
       if (db && sessionIds.length > 0) {
         const placeholders = sessionIds.map(() => '?').join(',');
-        await db.runAsync(
-          `DELETE FROM messages WHERE session_id IN (${placeholders})`,
-          sessionIds
-        );
+        await db.runAsync(`DELETE FROM messages WHERE session_id IN (${placeholders})`, sessionIds);
         await db.runAsync(
           `DELETE FROM artifacts WHERE session_id IN (${placeholders})`,
           sessionIds
         );
-        await db.runAsync(
-          `DELETE FROM sessions WHERE id IN (${placeholders})`,
-          sessionIds
-        );
+        await db.runAsync(`DELETE FROM sessions WHERE id IN (${placeholders})`, sessionIds);
       }
       if (db) {
         await db.runAsync('DELETE FROM projects WHERE workstation_id = ?', [id]);

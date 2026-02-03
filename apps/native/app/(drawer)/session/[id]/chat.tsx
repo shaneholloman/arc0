@@ -167,7 +167,10 @@ function ChatContent({ sessionId }: { sessionId: string }) {
   }, [userAssistantMessages, session?.pendingPermission]);
 
   // Detect if agent is running
-  const agentRunning = useMemo(() => isAgentRunning(userAssistantMessages), [userAssistantMessages]);
+  const agentRunning = useMemo(
+    () => isAgentRunning(userAssistantMessages),
+    [userAssistantMessages]
+  );
 
   // Update context when pending tool changes
   useEffect(() => {

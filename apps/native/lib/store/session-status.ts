@@ -79,12 +79,7 @@ export const STATUS_COLORS: Record<SessionStatus, { dot: string; text: string; h
  * Note: tool_approval, plan_approval, ask_user are NOT animated - they show
  * a static amber dot since they're waiting for user input/response.
  */
-export const ANIMATED_STATUSES: SessionStatus[] = [
-  'sending',
-  'submitting',
-  'thinking',
-  'working',
-];
+export const ANIMATED_STATUSES: SessionStatus[] = ['sending', 'submitting', 'thinking', 'working'];
 
 /**
  * Check if a status should show animation.
@@ -313,7 +308,9 @@ const ATTENTION_STATUSES: SessionStatus[] = ['ask_user', 'plan_approval', 'tool_
  * 3. 'working' - at least one session is working (blue spinner)
  * 4. 'idle' - all sessions are idle/ended (no indicator)
  */
-export function computeAggregateProjectStatus(sessionStatuses: SessionStatus[]): AggregateProjectStatus {
+export function computeAggregateProjectStatus(
+  sessionStatuses: SessionStatus[]
+): AggregateProjectStatus {
   let hasError = false;
   let hasWorking = false;
 

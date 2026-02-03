@@ -41,8 +41,12 @@ export function ensureCredentials(): Credentials {
       encryptionKey: randomBytes(32).toString("hex"),
       createdAt: new Date().toISOString(),
     };
-    writeFileSync(CREDENTIALS_FILE, JSON.stringify(creds, null, 2), { mode: 0o600 });
-    console.log(`[credentials] Generated new credentials in ${CREDENTIALS_FILE}`);
+    writeFileSync(CREDENTIALS_FILE, JSON.stringify(creds, null, 2), {
+      mode: 0o600,
+    });
+    console.log(
+      `[credentials] Generated new credentials in ${CREDENTIALS_FILE}`,
+    );
   }
   return creds;
 }
@@ -58,11 +62,16 @@ export function safeCompare(a: string, b: string): boolean {
 /**
  * Update credentials with tunnel auth info.
  */
-export function updateTunnelAuth(bearerToken: string, userId: string): Credentials {
+export function updateTunnelAuth(
+  bearerToken: string,
+  userId: string,
+): Credentials {
   const creds = ensureCredentials();
   creds.bearerToken = bearerToken;
   creds.userId = userId;
-  writeFileSync(CREDENTIALS_FILE, JSON.stringify(creds, null, 2), { mode: 0o600 });
+  writeFileSync(CREDENTIALS_FILE, JSON.stringify(creds, null, 2), {
+    mode: 0o600,
+  });
   console.log(`[credentials] Updated tunnel auth for user ${userId}`);
   return creds;
 }
@@ -75,7 +84,9 @@ export function clearTunnelAuth(): void {
   if (creds) {
     delete creds.bearerToken;
     delete creds.userId;
-    writeFileSync(CREDENTIALS_FILE, JSON.stringify(creds, null, 2), { mode: 0o600 });
+    writeFileSync(CREDENTIALS_FILE, JSON.stringify(creds, null, 2), {
+      mode: 0o600,
+    });
     console.log(`[credentials] Cleared tunnel auth`);
   }
 }

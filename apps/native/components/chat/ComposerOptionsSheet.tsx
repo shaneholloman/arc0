@@ -79,12 +79,10 @@ export function ComposerOptionsSheet({
 
         {/* Mode selection */}
         <View className="gap-3 px-4 pb-4">
-          <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+          <Text className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             Mode
           </Text>
-          <RadioGroup
-            value={mode}
-            onValueChange={(val) => val && onModeChange(val as PromptMode)}>
+          <RadioGroup value={mode} onValueChange={(val) => val && onModeChange(val as PromptMode)}>
             {MODE_OPTIONS.map((option) => (
               <Pressable
                 key={option.value}
@@ -99,12 +97,10 @@ export function ComposerOptionsSheet({
 
         {/* Model selection */}
         <View className="gap-3 px-4 pb-4">
-          <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+          <Text className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
             Model
           </Text>
-          <RadioGroup
-            value={model}
-            onValueChange={(val) => val && onModelChange(val as ModelId)}>
+          <RadioGroup value={model} onValueChange={(val) => val && onModelChange(val as ModelId)}>
             {MODEL_OPTIONS.map((option) => (
               <Pressable
                 key={option.value}

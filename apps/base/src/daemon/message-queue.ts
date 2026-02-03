@@ -26,7 +26,7 @@ export type EmitFn = (
   socketId: string,
   payload: RawMessagesBatchPayload,
   encrypted: boolean,
-  onAck: () => void
+  onAck: () => void,
 ) => boolean;
 
 export class MessageQueueManager {
@@ -89,7 +89,9 @@ export class MessageQueueManager {
       }
     }
     this.queues.delete(socketId);
-    console.log(`[message-queue] Cleared queue for disconnected client: ${socketId}`);
+    console.log(
+      `[message-queue] Cleared queue for disconnected client: ${socketId}`,
+    );
   }
 
   /**
@@ -111,7 +113,7 @@ export class MessageQueueManager {
 
     // Emit with ack callback
     const sent = this.emitFn(socketId, batch.payload, batch.encrypted, () =>
-      this.onAck(socketId)
+      this.onAck(socketId),
     );
 
     if (!sent) {
@@ -121,7 +123,7 @@ export class MessageQueueManager {
     }
 
     console.log(
-      `[message-queue] Sent batch to ${socketId} (${batch.payload.messages.length} messages), pending=${queue.pending.length}`
+      `[message-queue] Sent batch to ${socketId} (${batch.payload.messages.length} messages), pending=${queue.pending.length}`,
     );
   }
 

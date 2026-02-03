@@ -15,7 +15,8 @@ export function useResponsiveDrawer() {
   const isPersistent = width >= PERSISTENT_BREAKPOINT;
 
   // 320px for tablets+, 280px for foldables/iPad mini
-  const drawerWidth = width >= COMPACT_DRAWER_BREAKPOINT ? DRAWER_WIDTH_DEFAULT : DRAWER_WIDTH_COMPACT;
+  const drawerWidth =
+    width >= COMPACT_DRAWER_BREAKPOINT ? DRAWER_WIDTH_DEFAULT : DRAWER_WIDTH_COMPACT;
 
   return { isPersistent, isWeb, isLargeScreen, drawerWidth };
 }

@@ -17,7 +17,11 @@ import { CreateSessionModal, SessionList } from '@/components/sessions';
 import { ProjectList } from '@/components/projects';
 import { WelcomeEmpty } from '@/components/WelcomeEmpty';
 import { useClosedSessions, useOpenSessions, useWorkstations } from '@/lib/store/hooks';
-import { useConnectionStatus, useBackgroundConnectedCount, useHasAttemptedInitialConnect } from '@/lib/socket/provider';
+import {
+  useConnectionStatus,
+  useBackgroundConnectedCount,
+  useHasAttemptedInitialConnect,
+} from '@/lib/socket/provider';
 import { useStoreContext } from '@/lib/store/provider';
 import type { ConnectionStatus } from '@/lib/socket/types';
 import { useResponsiveDrawer } from '@/lib/hooks/useResponsiveDrawer';
@@ -144,10 +148,7 @@ function DrawerContent(
             onSessionPress={handleSessionPress}
           />
         ) : (
-          <ProjectList
-            selectedSessionId={selectedSessionId}
-            onSessionPress={handleSessionPress}
-          />
+          <ProjectList selectedSessionId={selectedSessionId} onSessionPress={handleSessionPress} />
         )}
       </View>
 

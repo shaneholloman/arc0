@@ -10,11 +10,7 @@ interface ProviderIconProps {
   showBackground?: boolean;
 }
 
-export function ProviderIcon({
-  providerId,
-  size = 18,
-  showBackground = true,
-}: ProviderIconProps) {
+export function ProviderIcon({ providerId, size = 18, showBackground = true }: ProviderIconProps) {
   const { theme } = useUniwind();
   const isDark = theme === 'dark';
   const provider = getProviderInfo(providerId);
@@ -32,8 +28,7 @@ export function ProviderIcon({
     return (
       <View
         className="size-8 items-center justify-center rounded-md"
-        style={{ backgroundColor: bgColor }}
-      >
+        style={{ backgroundColor: bgColor }}>
         {ProviderSvg ? (
           <ProviderSvg width={size} height={size} />
         ) : (

@@ -21,11 +21,7 @@ import {
   uint8ArrayToBase64,
   generateDeviceId,
 } from '@arc0/crypto';
-import type {
-  PairChallengePayload,
-  PairCompletePayload,
-  PairErrorPayload,
-} from '@arc0/types';
+import type { PairChallengePayload, PairCompletePayload, PairErrorPayload } from '@arc0/types';
 import { getDeviceName } from '../device';
 
 // Pairing timeout (same as server)
@@ -148,11 +144,7 @@ export async function pairWithWorkstation(
             try {
               // Verify server's MAC
               const serverMac = hexToBytes(complete.mac);
-              const isValid = spake2VerifyConfirmation(
-                keyMaterial,
-                'server',
-                serverMac
-              );
+              const isValid = spake2VerifyConfirmation(keyMaterial, 'server', serverMac);
 
               if (!isValid) {
                 handleError('Server verification failed - possible MITM attack');

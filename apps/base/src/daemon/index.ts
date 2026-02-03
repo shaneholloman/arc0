@@ -53,7 +53,10 @@ async function sessionFileToData(session: SessionFile): Promise<SessionData> {
 /**
  * Convert StoredLines to RawMessageEnvelopes for sending.
  */
-function linesToEnvelopes(sessionId: string, lines: StoredLine[]): RawMessageEnvelope[] {
+function linesToEnvelopes(
+  sessionId: string,
+  lines: StoredLine[],
+): RawMessageEnvelope[] {
   return lines.map((line) => ({
     sessionId,
     payload: line.raw,
@@ -64,7 +67,9 @@ async function main() {
   // Load config
   const config = loadConfig();
   if (!config?.workstationId) {
-    console.error("[daemon] Config not found or missing workstationId. Run 'arc0 init' first.");
+    console.error(
+      "[daemon] Config not found or missing workstationId. Run 'arc0 init' first.",
+    );
     process.exit(1);
   }
 
@@ -80,8 +85,12 @@ async function main() {
 
   if (!releaseLock) {
     const state = readDaemonState();
-    console.error(`[daemon] Another daemon is already running (PID: ${state?.pid}, control: ${state?.controlPort}, socket: ${state?.socketPort})`);
-    console.error("[daemon] Use 'arc0 stop' to stop it first, or 'arc0 status' to check its status.");
+    console.error(
+      `[daemon] Another daemon is already running (PID: ${state?.pid}, control: ${state?.controlPort}, socket: ${state?.socketPort})`,
+    );
+    console.error(
+      "[daemon] Use 'arc0 stop' to stop it first, or 'arc0 status' to check its status.",
+    );
     process.exit(1);
   }
 
@@ -96,14 +105,18 @@ async function main() {
   // Create action handlers with access to session data
   const actionHandlers = createActionHandlers({
     getSession: (sessionId) => {
-      return sessionWatcher.getActiveSessions().find((s) => s.sessionId === sessionId);
+      return sessionWatcher
+        .getActiveSessions()
+        .find((s) => s.sessionId === sessionId);
     },
   });
 
   // Get preferred ports from config (if any)
   const portPrefs = getPreferredPorts();
   if (portPrefs) {
-    console.log(`[daemon] Found port preferences (control: ${portPrefs.controlPort ?? "none"}, socket: ${portPrefs.socketPort ?? "none"})`);
+    console.log(
+      `[daemon] Found port preferences (control: ${portPrefs.controlPort ?? "none"}, socket: ${portPrefs.socketPort ?? "none"})`,
+    );
   }
 
   // Track ports as they become ready
@@ -122,7 +135,9 @@ async function main() {
       });
       // Save port preferences for next startup
       savePreferredPorts(controlPort, socketPort);
-      console.log(`[daemon] State written (control: ${controlPort}, socket: ${socketPort})`);
+      console.log(
+        `[daemon] State written (control: ${controlPort}, socket: ${socketPort})`,
+      );
     }
   };
 
@@ -138,22 +153,33 @@ async function main() {
   // Helper to send current sessions to a specific client
   const sendSessionsSyncToClient = async (socketId: string) => {
     const sessions = await Promise.all(
-      sessionWatcher.getActiveSessions().map(sessionFileToData)
+      sessionWatcher.getActiveSessions().map(sessionFileToData),
     );
-    socketServer.sendSessionsSyncToClient(socketId, { workstationId, sessions });
+    socketServer.sendSessionsSyncToClient(socketId, {
+      workstationId,
+      sessions,
+    });
   };
 
   // Helper to send all projects to a specific client
   const sendProjectsSyncToClient = (socketId: string) => {
     const projects = projectStore.getAll();
-    socketServer.sendProjectsSyncToClient(socketId, { workstationId, projects });
+    socketServer.sendProjectsSyncToClient(socketId, {
+      workstationId,
+      projects,
+    });
   };
 
   // Helper to send messages for a client based on their cursor
   // Sends one batch per session SEQUENTIALLY with flow control (waits for ack before next batch)
-  const sendMessagesForClient = async (socketId: string, cursor: { sessionId: string; lastMessageTs: string }[]) => {
+  const sendMessagesForClient = async (
+    socketId: string,
+    cursor: { sessionId: string; lastMessageTs: string }[],
+  ) => {
     // Build cursor map for quick lookup
-    const cursorMap = new Map(cursor.map((c) => [c.sessionId, c.lastMessageTs]));
+    const cursorMap = new Map(
+      cursor.map((c) => [c.sessionId, c.lastMessageTs]),
+    );
 
     // Get all active sessions
     const activeSessions = sessionWatcher.getActiveSessions();
@@ -178,7 +204,9 @@ async function main() {
   const hasRegisteredClients = Object.keys(clientStore.clients).length > 0;
 
   if (hasRegisteredClients) {
-    console.log(`[daemon] Found ${Object.keys(clientStore.clients).length} paired client(s), enabling per-client auth`);
+    console.log(
+      `[daemon] Found ${Object.keys(clientStore.clients).length} paired client(s), enabling per-client auth`,
+    );
   }
 
   // Create socket server (all interfaces, for mobile via tunnel)
@@ -248,7 +276,9 @@ async function main() {
 
   // Handle new messages from JSONL watcher
   eventBus.on("messages:new", (sessionId, lines) => {
-    console.log(`[daemon] messages:new: ${lines.length} lines for ${sessionId}`);
+    console.log(
+      `[daemon] messages:new: ${lines.length} lines for ${sessionId}`,
+    );
 
     // Broadcast to all connected clients
     const envelopes = linesToEnvelopes(sessionId, lines);
@@ -261,16 +291,20 @@ async function main() {
 
   // Handle permission request events - send through messages channel
   eventBus.on("permission:request", (sessionId, event) => {
-    console.log(`[daemon] permission:request: ${event.toolName} for ${sessionId}`);
+    console.log(
+      `[daemon] permission:request: ${event.toolName} for ${sessionId}`,
+    );
 
     // Send as a RawMessageEnvelope through the messages channel
     // The payload includes type: 'permission_request' so native can detect it
     socketServer.sendMessagesBatch({
       workstationId,
-      messages: [{
-        sessionId,
-        payload: event, // SessionEvent with type: 'permission_request'
-      }],
+      messages: [
+        {
+          sessionId,
+          payload: event, // SessionEvent with type: 'permission_request'
+        },
+      ],
       batchId: randomUUID(),
     });
   });
@@ -290,7 +324,9 @@ async function main() {
   const startTunnel = async () => {
     if (config.tunnel?.mode === "arc0" && socketPort > 0) {
       frpcManager = await createFrpcManager(config, socketPort, (status) => {
-        console.log(`[frpc] Status: ${status.status}${status.tunnelUrl ? ` (${status.tunnelUrl})` : ""}`);
+        console.log(
+          `[frpc] Status: ${status.status}${status.tunnelUrl ? ` (${status.tunnelUrl})` : ""}`,
+        );
       });
 
       if (frpcManager) {

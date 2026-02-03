@@ -1,11 +1,20 @@
 import { z } from "zod";
 
 // Artifact type enum
-export const artifactTypeSchema = z.enum(["plan", "todo", "thinking", "summary"]);
+export const artifactTypeSchema = z.enum([
+  "plan",
+  "todo",
+  "thinking",
+  "summary",
+]);
 export type ArtifactType = z.infer<typeof artifactTypeSchema>;
 
 // Artifact status enum
-export const artifactStatusSchema = z.enum(["pending", "in_progress", "completed"]);
+export const artifactStatusSchema = z.enum([
+  "pending",
+  "in_progress",
+  "completed",
+]);
 export type ArtifactStatus = z.infer<typeof artifactStatusSchema>;
 
 // Artifact schema

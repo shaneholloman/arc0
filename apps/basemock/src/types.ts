@@ -21,7 +21,7 @@ import type {
   SendPromptPayload,
   StopAgentPayload,
   ApproveToolUsePayload,
-} from '@arc0/types';
+} from "@arc0/types";
 export type {
   RawMessageEnvelope,
   SocketSessionData,
@@ -43,37 +43,41 @@ export type {
 // =============================================================================
 
 export interface TextBlock {
-  type: 'text';
+  type: "text";
   text: string;
 }
 
 export interface ThinkingBlock {
-  type: 'thinking';
+  type: "thinking";
   thinking: string;
   signature?: string; // Raw format uses 'signature', transformer maps to 'thinkingSignature'
 }
 
 export interface ToolUseBlock {
-  type: 'tool_use';
+  type: "tool_use";
   id: string; // Raw format uses 'id', not 'toolCallId'
   name: string;
   input: Record<string, unknown>;
 }
 
 export interface ToolResultBlock {
-  type: 'tool_result';
+  type: "tool_result";
   tool_use_id: string; // Raw format uses 'tool_use_id', not 'toolCallId'
-  content: string | Array<{ type: 'text'; text: string }>;
+  content: string | Array<{ type: "text"; text: string }>;
   is_error?: boolean; // Raw format uses 'is_error', not 'isError'
 }
 
-export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock;
+export type ContentBlock =
+  | TextBlock
+  | ThinkingBlock
+  | ToolUseBlock
+  | ToolResultBlock;
 
 // =============================================================================
 // Message Types (raw JSONL format - matches real Claude JSONL structure)
 // =============================================================================
 
-export type MessageType = 'user' | 'assistant';
+export type MessageType = "user" | "assistant";
 
 // =============================================================================
 // Metadata Message Types (non-conversation messages in JSONL)
@@ -84,7 +88,7 @@ export type MessageType = 'user' | 'assistant';
  * This is a metadata message, not a conversation message.
  */
 export interface CustomTitleMessage {
-  type: 'custom-title';
+  type: "custom-title";
   customTitle: string;
   sessionId: string;
 }
@@ -106,12 +110,12 @@ export interface RawMessageUsage {
  * Matches real Claude JSONL format exactly.
  */
 export interface RawMessageContent {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: ContentBlock[] | string;
   // Assistant-only fields
   model?: string; // e.g., "claude-sonnet-4-20250514"
   id?: string; // e.g., "msg_01ABC..."
-  type?: 'message'; // Always "message" for assistant
+  type?: "message"; // Always "message" for assistant
   usage?: RawMessageUsage;
   stop_reason?: string | null;
   stop_sequence?: null;
@@ -133,7 +137,7 @@ export interface ClaudeJSONLMessage {
   cwd?: string;
   sessionId?: string;
   isSidechain?: boolean;
-  userType?: 'external' | 'internal';
+  userType?: "external" | "internal";
   version?: string; // e.g., "2.1.7"
   gitBranch?: string | null;
   slug?: string; // e.g., "iridescent-honking-firefly"
@@ -182,7 +186,7 @@ export interface ClientInfo {
 // UI Types (basemock-specific)
 // =============================================================================
 
-export type StatusType = 'success' | 'error' | 'warn' | 'info';
+export type StatusType = "success" | "error" | "warn" | "info";
 
 export interface StatusMessage {
   text: string;
@@ -190,7 +194,7 @@ export interface StatusMessage {
   timestamp: number;
 }
 
-export type CategoryKey = 'c' | 's' | 'm';
+export type CategoryKey = "c" | "s" | "m";
 
 export interface MenuCategory {
   key: CategoryKey;

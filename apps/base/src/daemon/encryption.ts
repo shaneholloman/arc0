@@ -30,7 +30,7 @@ const encryptionContexts = new Map<string, ClientEncryptionContext>();
 export function registerEncryptionContext(
   socketId: string,
   deviceId: string,
-  encryptionKey: Uint8Array
+  encryptionKey: Uint8Array,
 ): void {
   encryptionContexts.set(socketId, { deviceId, encryptionKey });
   console.log(`[encryption] Registered context for socket ${socketId}`);
@@ -53,14 +53,19 @@ export function hasEncryptionContext(socketId: string): boolean {
 /**
  * Get encryption context for a socket.
  */
-export function getEncryptionContext(socketId: string): ClientEncryptionContext | null {
+export function getEncryptionContext(
+  socketId: string,
+): ClientEncryptionContext | null {
   return encryptionContexts.get(socketId) ?? null;
 }
 
 /**
  * Encrypt a payload for a specific client.
  */
-export function encryptForClient<T>(socketId: string, payload: T): EncryptedEnvelope | null {
+export function encryptForClient<T>(
+  socketId: string,
+  payload: T,
+): EncryptedEnvelope | null {
   const ctx = encryptionContexts.get(socketId);
   if (!ctx) {
     console.warn(`[encryption] No context for socket ${socketId}`);
@@ -72,7 +77,10 @@ export function encryptForClient<T>(socketId: string, payload: T): EncryptedEnve
 /**
  * Decrypt a payload from a specific client.
  */
-export function decryptFromClient<T>(socketId: string, envelope: EncryptedEnvelope): T | null {
+export function decryptFromClient<T>(
+  socketId: string,
+  envelope: EncryptedEnvelope,
+): T | null {
   const ctx = encryptionContexts.get(socketId);
   if (!ctx) {
     console.warn(`[encryption] No context for socket ${socketId}`);
@@ -81,7 +89,10 @@ export function decryptFromClient<T>(socketId: string, envelope: EncryptedEnvelo
   try {
     return decrypt<T>(ctx.encryptionKey, envelope);
   } catch (err) {
-    console.error(`[encryption] Decryption failed for socket ${socketId}:`, err);
+    console.error(
+      `[encryption] Decryption failed for socket ${socketId}:`,
+      err,
+    );
     return null;
   }
 }

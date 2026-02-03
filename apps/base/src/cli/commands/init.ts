@@ -90,7 +90,9 @@ export async function initCommand(): Promise<void> {
   ];
 
   if (config.tunnel?.mode === "arc0" && config.tunnel.subdomain) {
-    summaryLines.push(`Tunnel: https://${config.tunnel.subdomain}.${TUNNEL_DOMAIN}`);
+    summaryLines.push(
+      `Tunnel: https://${config.tunnel.subdomain}.${TUNNEL_DOMAIN}`,
+    );
   } else {
     summaryLines.push(`Tunnel: Local / BYO`);
   }
@@ -98,7 +100,9 @@ export async function initCommand(): Promise<void> {
   p.note(summaryLines.join("\n"), "Configuration Summary");
 
   if (config.tunnel?.mode !== "arc0") {
-    p.log.info("Run 'arc0 auth login' to enable Arc0 tunnel for mobile access.");
+    p.log.info(
+      "Run 'arc0 auth login' to enable Arc0 tunnel for mobile access.",
+    );
   }
 
   // Ask to start daemon

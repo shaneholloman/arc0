@@ -18,7 +18,9 @@ function ensureStateFile(): void {
  * Try to acquire the daemon lock.
  * Returns a release function if successful, null if already locked.
  */
-export async function acquireDaemonLock(): Promise<(() => Promise<void>) | null> {
+export async function acquireDaemonLock(): Promise<
+  (() => Promise<void>) | null
+> {
   ensureStateFile();
 
   try {
@@ -28,7 +30,12 @@ export async function acquireDaemonLock(): Promise<(() => Promise<void>) | null>
     });
     return release;
   } catch (err: unknown) {
-    if (err && typeof err === "object" && "code" in err && err.code === "ELOCKED") {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      err.code === "ELOCKED"
+    ) {
       return null; // Already locked by another process
     }
     throw err; // Unexpected error

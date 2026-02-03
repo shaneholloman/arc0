@@ -80,8 +80,7 @@ export function TaskNotificationDisplay({ message }: TaskNotificationDisplayProp
         'flex-row items-center gap-2 rounded-sm border px-3 py-2',
         config.bgColor,
         config.borderColor
-      )}
-    >
+      )}>
       <Icon as={StatusIcon} className={cn('size-4', config.color)} />
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-center gap-2">
@@ -93,7 +92,7 @@ export function TaskNotificationDisplay({ message }: TaskNotificationDisplayProp
           </View>
         </View>
         {notification.summary ? (
-          <Text className="text-xs text-muted-foreground">{notification.summary}</Text>
+          <Text className="text-muted-foreground text-xs">{notification.summary}</Text>
         ) : null}
       </View>
     </View>

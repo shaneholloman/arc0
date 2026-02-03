@@ -29,9 +29,7 @@ interface MessageRow {
 /**
  * Parse local command from XML content.
  */
-function parseLocalCommand(
-  content: string
-): { commandName: string; commandArgs: string } | null {
+function parseLocalCommand(content: string): { commandName: string; commandArgs: string } | null {
   const nameMatch = content.match(/<command-name>([^<]+)<\/command-name>/);
   const argsMatch = content.match(/<command-args>([^<]*)<\/command-args>/);
   if (!nameMatch) return null;
@@ -289,11 +287,7 @@ export function getLoadedMessageCount(indexes: Indexes, sessionId: string): numb
  * @param indexes - TinyBase indexes instance
  * @param sessionId - Session ID to unload messages for
  */
-export function unloadSessionMessages(
-  store: Store,
-  indexes: Indexes,
-  sessionId: string
-): void {
+export function unloadSessionMessages(store: Store, indexes: Indexes, sessionId: string): void {
   const messageIds = indexes.getSliceRowIds('messagesBySession', sessionId);
 
   if (messageIds.length === 0) {

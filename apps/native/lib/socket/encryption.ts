@@ -40,10 +40,7 @@ function getKeyBytes(base64Key: string): Uint8Array {
  * @param payload - JSON-serializable payload
  * @returns Encrypted envelope
  */
-export function encryptPayload<T>(
-  ctx: EncryptionContext,
-  payload: T
-): EncryptedEnvelope {
+export function encryptPayload<T>(ctx: EncryptionContext, payload: T): EncryptedEnvelope {
   const key = getKeyBytes(ctx.encryptionKey);
   return aeadEncrypt(key, payload);
 }
@@ -56,10 +53,7 @@ export function encryptPayload<T>(
  * @returns Decrypted payload
  * @throws Error if decryption fails
  */
-export function decryptPayload<T>(
-  ctx: EncryptionContext,
-  envelope: EncryptedEnvelope
-): T {
+export function decryptPayload<T>(ctx: EncryptionContext, envelope: EncryptedEnvelope): T {
   const key = getKeyBytes(ctx.encryptionKey);
   return aeadDecrypt(key, envelope);
 }

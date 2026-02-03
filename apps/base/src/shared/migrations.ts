@@ -32,9 +32,16 @@ function compareVersions(a: string, b: string): number {
 /**
  * Get ordered list of migration versions between two versions.
  */
-function getMigrationVersions(fromVersion: string, toVersion: string): string[] {
+function getMigrationVersions(
+  fromVersion: string,
+  toVersion: string,
+): string[] {
   return Object.keys(migrations)
-    .filter((v) => compareVersions(v, fromVersion) > 0 && compareVersions(v, toVersion) <= 0)
+    .filter(
+      (v) =>
+        compareVersions(v, fromVersion) > 0 &&
+        compareVersions(v, toVersion) <= 0,
+    )
     .sort(compareVersions);
 }
 

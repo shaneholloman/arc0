@@ -5,13 +5,17 @@ import type {
   ClaudeJsonlLine,
 } from "./jsonl";
 import type { ContentBlock, MessageRole } from "../index";
-import type { MessageInsert, ToolCallInsert, TokenUsageInsert } from "../entities";
+import type {
+  MessageInsert,
+  ToolCallInsert,
+  TokenUsageInsert,
+} from "../entities";
 
 /**
  * Transform a Claude content block to unified format
  */
 export function transformClaudeContentBlock(
-  block: ClaudeContentBlock
+  block: ClaudeContentBlock,
 ): ContentBlock {
   switch (block.type) {
     case "text":
@@ -59,7 +63,7 @@ export function transformClaudeContentBlock(
  * Transform Claude message content to unified ContentBlock array
  */
 export function transformClaudeContent(
-  content: ClaudeContentBlock[] | string
+  content: ClaudeContentBlock[] | string,
 ): ContentBlock[] {
   if (typeof content === "string") {
     return [{ type: "text", text: content }];
@@ -79,7 +83,9 @@ export function determineMessageRole(line: ClaudeJsonlLine): MessageRole {
     // Check content for tool_result blocks
     const content = line.message.content;
     if (Array.isArray(content)) {
-      const hasToolResult = content.some((block) => block.type === "tool_result");
+      const hasToolResult = content.some(
+        (block) => block.type === "tool_result",
+      );
       if (hasToolResult) {
         return "tool";
       }
@@ -94,7 +100,7 @@ export function determineMessageRole(line: ClaudeJsonlLine): MessageRole {
  */
 export function transformClaudeMessage(
   line: ClaudeUserLine | ClaudeAssistantLine,
-  sessionId: string
+  sessionId: string,
 ): MessageInsert {
   const content = transformClaudeContent(line.message.content);
   const role = determineMessageRole(line);
@@ -106,10 +112,12 @@ export function transformClaudeMessage(
     role,
     providerType: line.type,
     content,
-    rawContent: typeof line.message.content === "string" ? line.message.content : null,
+    rawContent:
+      typeof line.message.content === "string" ? line.message.content : null,
     model: line.message.model ?? null,
     providerMessageId: line.message.id ?? null,
-    providerRequestId: line.type === "assistant" ? line.requestId ?? null : null,
+    providerRequestId:
+      line.type === "assistant" ? (line.requestId ?? null) : null,
     providerMetadata: null,
   };
 }
@@ -119,7 +127,7 @@ export function transformClaudeMessage(
  */
 export function extractToolCalls(
   line: ClaudeAssistantLine,
-  sessionId: string
+  sessionId: string,
 ): ToolCallInsert[] {
   const content = line.message.content;
   if (typeof content === "string") {
@@ -127,8 +135,9 @@ export function extractToolCalls(
   }
 
   return content
-    .filter((block): block is Extract<ClaudeContentBlock, { type: "tool_use" }> =>
-      block.type === "tool_use"
+    .filter(
+      (block): block is Extract<ClaudeContentBlock, { type: "tool_use" }> =>
+        block.type === "tool_use",
     )
     .map((block) => ({
       id: block.id,
@@ -156,7 +165,7 @@ export function extractToolCalls(
  */
 export function extractTokenUsage(
   line: ClaudeAssistantLine,
-  sessionId: string
+  sessionId: string,
 ): TokenUsageInsert | null {
   const usage = line.message.usage;
   if (!usage) {

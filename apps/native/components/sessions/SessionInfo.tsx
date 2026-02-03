@@ -20,8 +20,8 @@ interface SessionInfoProps {
 
 // Path truncation lengths per context
 const PATH_MAX_LENGTH = {
-  list: 20,    // Session cards in list
-  header: 40,  // Session header
+  list: 20, // Session cards in list
+  header: 40, // Session header
 } as const;
 
 /**
@@ -32,18 +32,22 @@ export function SessionInfo({ session, size = 'default', context = 'list' }: Ses
   const statusInfo = useEffectiveSessionStatus(session);
   const colors = STATUS_COLORS[statusInfo.status];
 
-  const formattedFirstMessage = session.firstMessage ? formatFirstMessageForDisplay(session.firstMessage) : null;
+  const formattedFirstMessage = session.firstMessage
+    ? formatFirstMessageForDisplay(session.firstMessage)
+    : null;
   const displayName = session.name || formattedFirstMessage || `Session ${session.id.slice(-8)}`;
   const pathMaxLength = PATH_MAX_LENGTH[context];
 
   // For idle/ended, show time instead of status label
   const showTime = statusInfo.status === 'idle' || statusInfo.status === 'ended';
-  const timeAgo = showTime ? formatRelativeTimeShort(session.lastMessageAt || session.startedAt) : '';
+  const timeAgo = showTime
+    ? formatRelativeTimeShort(session.lastMessageAt || session.startedAt)
+    : '';
 
   const iconSize = size === 'compact' ? 16 : 18;
 
   return (
-    <View className="flex-row items-center flex-1">
+    <View className="flex-1 flex-row items-center">
       {/* Provider Icon */}
       <View className="mr-2.5">
         <ProviderIcon providerId={session.providerId} size={iconSize} />
@@ -58,12 +62,12 @@ export function SessionInfo({ session, size = 'default', context = 'list' }: Ses
 
         {/* Status text · project path (second line) */}
         <View className="-mt-0.5 flex-row items-center">
-          <Text className={`text-xs font-mono ${colors.text}`}>
+          <Text className={`font-mono text-xs ${colors.text}`}>
             {showTime ? timeAgo : statusInfo.label}
           </Text>
           <Text className="text-muted-foreground mx-1.5 text-xs">·</Text>
-          <Icon as={Folder} className="size-3 text-muted-foreground" />
-          <Text className="ml-1 flex-1 font-mono text-xs text-muted-foreground" numberOfLines={1}>
+          <Icon as={Folder} className="text-muted-foreground size-3" />
+          <Text className="text-muted-foreground ml-1 flex-1 font-mono text-xs" numberOfLines={1}>
             {truncatePath(session.projectName, pathMaxLength)}
           </Text>
         </View>

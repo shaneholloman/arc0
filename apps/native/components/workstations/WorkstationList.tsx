@@ -230,7 +230,9 @@ export function WorkstationList({
         Workstations
       </Text>
 
-      <View testID="workstation-list" className="bg-card border-border overflow-hidden rounded-lg border">
+      <View
+        testID="workstation-list"
+        className="bg-card border-border overflow-hidden rounded-lg border">
         {workstations.length === 0 ? (
           <View testID="workstation-empty" className="items-center px-4 py-6">
             <Text className="text-muted-foreground text-center">No workstations configured</Text>

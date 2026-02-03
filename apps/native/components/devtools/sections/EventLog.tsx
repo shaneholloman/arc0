@@ -70,11 +70,7 @@ function EventRow({ event }: EventRowProps) {
 
   // Direction icon
   const DirectionIcon =
-    event.direction === 'in'
-      ? ArrowDownIcon
-      : event.direction === 'out'
-        ? ArrowUpIcon
-        : null;
+    event.direction === 'in' ? ArrowDownIcon : event.direction === 'out' ? ArrowUpIcon : null;
 
   const timeStr = event.timestamp.toLocaleTimeString([], {
     hour: '2-digit',
@@ -124,7 +120,7 @@ export function EventLog() {
   return (
     <View>
       <View className="mb-2 flex-row items-center justify-between">
-        <Text className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+        <Text className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           Event Log
         </Text>
         <Pressable

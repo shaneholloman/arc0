@@ -413,10 +413,7 @@ export async function clearAllWorkstationSecrets(workstationIds?: string[]): Pro
       await deleteNativeSecret(workstationId);
       await deleteNativeEncryptionKey(workstationId);
     } catch (err) {
-      console.warn(
-        `[workstations] Failed to clear secrets for workstation ${workstationId}:`,
-        err
-      );
+      console.warn(`[workstations] Failed to clear secrets for workstation ${workstationId}:`, err);
     }
   }
 }

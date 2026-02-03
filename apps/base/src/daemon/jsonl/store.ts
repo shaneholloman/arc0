@@ -34,7 +34,11 @@ class JsonlStore {
   /**
    * Add a new session to the store.
    */
-  addSession(sessionId: string, filePath: string, lines: StoredLine[] = []): void {
+  addSession(
+    sessionId: string,
+    filePath: string,
+    lines: StoredLine[] = [],
+  ): void {
     this.sessions.set(sessionId, {
       sessionId,
       lines,
@@ -118,7 +122,10 @@ class JsonlStore {
   /**
    * Wrap lines as RawMessageEnvelopes for sending.
    */
-  wrapAsEnvelopes(sessionId: string, lines: StoredLine[]): RawMessageEnvelope[] {
+  wrapAsEnvelopes(
+    sessionId: string,
+    lines: StoredLine[],
+  ): RawMessageEnvelope[] {
     return lines.map((line) => ({
       sessionId,
       payload: line.raw,

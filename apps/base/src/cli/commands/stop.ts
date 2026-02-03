@@ -36,7 +36,12 @@ export async function stopCommand(): Promise<void> {
     s.stop("Daemon stopped");
   } catch (err: unknown) {
     // ESRCH means process is already dead - treat as success
-    if (err && typeof err === "object" && "code" in err && err.code === "ESRCH") {
+    if (
+      err &&
+      typeof err === "object" &&
+      "code" in err &&
+      err.code === "ESRCH"
+    ) {
       removeDaemonState();
       s.stop("Daemon stopped (process was already dead)");
     } else {

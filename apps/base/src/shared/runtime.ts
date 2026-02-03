@@ -5,5 +5,9 @@
  */
 export function isCompiledBinary(): boolean {
   const execPath = process.execPath.toLowerCase();
-  return !execPath.includes("node") && !execPath.includes("bun") && !execPath.includes("tsx");
+  return (
+    !execPath.includes("node") &&
+    !execPath.includes("bun") &&
+    !execPath.includes("tsx")
+  );
 }

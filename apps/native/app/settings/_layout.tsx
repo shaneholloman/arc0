@@ -25,8 +25,7 @@ export default function SettingsLayout() {
         contentStyle: { backgroundColor: colors.background },
         headerBackVisible: true,
         headerTintColor: colors.foreground,
-      }}
-    >
+      }}>
       <Stack.Screen
         name="index"
         options={{

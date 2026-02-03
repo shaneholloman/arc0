@@ -7,7 +7,11 @@ import type {
 } from '@/lib/types/session';
 import { useScrollToMessageSafe } from '@/lib/contexts/ScrollToMessageContext';
 import { useMessage } from '@/lib/store/hooks';
-import { deriveToolState, isNonInteractiveTool, type ToolResultWithMetadata } from '@/lib/utils/tool-state';
+import {
+  deriveToolState,
+  isNonInteractiveTool,
+  type ToolResultWithMetadata,
+} from '@/lib/utils/tool-state';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { View } from 'react-native';
@@ -33,10 +37,21 @@ interface ContentBlockRendererProps {
   providerId?: string;
 }
 
-function ContentBlockRenderer({ block, isUser, toolResults, isInProgress, isLastMessage, providerId }: ContentBlockRendererProps) {
+function ContentBlockRenderer({
+  block,
+  isUser,
+  toolResults,
+  isInProgress,
+  isLastMessage,
+  providerId,
+}: ContentBlockRendererProps) {
   switch (block.type) {
     case 'text':
-      return isUser ? <UserMessage text={block.text} /> : <AssistantMessage text={block.text} providerId={providerId} />;
+      return isUser ? (
+        <UserMessage text={block.text} />
+      ) : (
+        <AssistantMessage text={block.text} providerId={providerId} />
+      );
     case 'thinking':
       return <ThinkingBlockDisplay thinking={block.thinking} isInProgress={isInProgress} />;
     case 'tool_use': {

@@ -5,4 +5,11 @@
 export * from './types';
 export * from './manager';
 export * from './actions';
-export { SocketProvider, useSocketContext, useConnectionStatus, useConnectionState, useActiveWorkstationId, useBackgroundConnectedCount } from './provider';
+export {
+  SocketProvider,
+  useSocketContext,
+  useConnectionStatus,
+  useConnectionState,
+  useActiveWorkstationId,
+  useBackgroundConnectedCount,
+} from './provider';

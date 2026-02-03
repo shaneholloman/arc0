@@ -78,13 +78,7 @@ export function ErrorFallback({
  * Full-screen error view for critical failures.
  * Used by StoreProvider when initialization fails.
  */
-export function CriticalErrorFallback({
-  error,
-  onRetry,
-}: {
-  error: Error;
-  onRetry?: () => void;
-}) {
+export function CriticalErrorFallback({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   return (
     <ErrorFallback
       error={error}

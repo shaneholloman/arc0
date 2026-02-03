@@ -36,7 +36,8 @@ export function ArtifactChip({ chip, count, selected, onPress }: ArtifactChipPro
         />
         <Text>{chip.label}</Text>
         {chip.type !== 'plan' && (
-          <Text className={selected ? 'text-primary-foreground/70' : 'text-secondary-foreground/70'}>
+          <Text
+            className={selected ? 'text-primary-foreground/70' : 'text-secondary-foreground/70'}>
             {count}
           </Text>
         )}

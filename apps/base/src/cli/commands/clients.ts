@@ -8,9 +8,16 @@
 
 import * as p from "@clack/prompts";
 import pc from "picocolors";
-import { listClients, revokeClient, type ClientRecord } from "../../shared/clients.js";
+import {
+  listClients,
+  revokeClient,
+  type ClientRecord,
+} from "../../shared/clients.js";
 
-export async function clientsCommand(subcommand?: string, arg?: string): Promise<void> {
+export async function clientsCommand(
+  subcommand?: string,
+  arg?: string,
+): Promise<void> {
   switch (subcommand) {
     case "list":
     case undefined:
@@ -54,7 +61,7 @@ async function listClientsCommand(): Promise<void> {
 
   p.note(
     `To revoke access: ${pc.cyan("arc0 clients revoke <deviceId>")}`,
-    "Tip"
+    "Tip",
   );
 }
 
@@ -106,10 +113,12 @@ async function revokeClientCommand(deviceId?: string): Promise<void> {
   const success = revokeClient(deviceId);
 
   if (success) {
-    p.log.success(`Revoked access for ${pc.cyan(client.deviceName ?? deviceId)}`);
+    p.log.success(
+      `Revoked access for ${pc.cyan(client.deviceName ?? deviceId)}`,
+    );
     p.note(
       "The device will be disconnected and must pair again to reconnect.",
-      "Note"
+      "Note",
     );
   } else {
     p.log.error("Failed to revoke device");

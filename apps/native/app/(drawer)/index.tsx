@@ -28,7 +28,12 @@ export default function HomeScreen() {
   // Auto-navigate to first open session when connected
   const firstSessionId = openSessions[0]?.id;
   useEffect(() => {
-    if (connectionStatus === 'connected' && firstSessionId && !hasAutoNavigatedRef.current && Platform.OS === 'web') {
+    if (
+      connectionStatus === 'connected' &&
+      firstSessionId &&
+      !hasAutoNavigatedRef.current &&
+      Platform.OS === 'web'
+    ) {
       hasAutoNavigatedRef.current = true;
       router.replace({ pathname: '/session/[id]/chat', params: { id: firstSessionId } });
     }
@@ -50,9 +55,7 @@ export default function HomeScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <View className="gap-2">
             <Text className="text-center text-xl font-semibold">Connecting</Text>
-            <Text className="text-muted-foreground text-center">
-              Connecting to workstation...
-            </Text>
+            <Text className="text-muted-foreground text-center">Connecting to workstation...</Text>
           </View>
         </View>
       </View>
@@ -76,9 +79,7 @@ export default function HomeScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
           <View className="gap-2">
             <Text className="text-center text-xl font-semibold">Connecting</Text>
-            <Text className="text-muted-foreground text-center">
-              Connecting to workstation...
-            </Text>
+            <Text className="text-muted-foreground text-center">Connecting to workstation...</Text>
           </View>
         </View>
       </View>
@@ -133,10 +134,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <CreateSessionModal
-          visible={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
-        />
+        <CreateSessionModal visible={showCreateModal} onClose={() => setShowCreateModal(false)} />
       </View>
     );
   }

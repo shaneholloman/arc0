@@ -48,5 +48,7 @@ export function ScrollToMessageProvider({ children }: ScrollToMessageProviderPro
     [targetMessageUuid, requestScrollToMessage, clearScrollRequest]
   );
 
-  return <ScrollToMessageContext.Provider value={value}>{children}</ScrollToMessageContext.Provider>;
+  return (
+    <ScrollToMessageContext.Provider value={value}>{children}</ScrollToMessageContext.Provider>
+  );
 }

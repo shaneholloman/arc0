@@ -1,11 +1,7 @@
 import { Icon } from '@/components/ui/icon';
 import { Shimmer } from '@/components/ui/shimmer';
 import { Text } from '@/components/ui/text';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { StructuredPatch, ToolUseResultMetadata } from '@/lib/types/session';
 import { cn } from '@/lib/utils';
 import { structuredPatch } from 'diff';
@@ -49,7 +45,9 @@ interface ToolCallBlockProps {
  * - array: [{type: "text", text: "Tool result text"}]
  * - object: {type: "text", text: "Tool result text"}
  */
-function normalizeResultContent(result: string | unknown[] | Record<string, unknown> | undefined): string | undefined {
+function normalizeResultContent(
+  result: string | unknown[] | Record<string, unknown> | undefined
+): string | undefined {
   if (result === undefined) return undefined;
   if (typeof result === 'string') return result;
 
@@ -96,7 +94,7 @@ function computeEditPatches(input: Record<string, unknown>): StructuredPatch[] |
   if (!patch.hunks || patch.hunks.length === 0) return null;
 
   // Convert diff library's hunks to our StructuredPatch format
-  return patch.hunks.map(hunk => ({
+  return patch.hunks.map((hunk) => ({
     oldStart: hunk.oldStart,
     oldLines: hunk.oldLines,
     newStart: hunk.newStart,
@@ -125,7 +123,12 @@ function getToolIcon(toolName: string): LucideIcon {
 }
 
 // Tools that have their own custom display components and don't use ToolApprovalDisplay
-const CUSTOM_DISPLAY_TOOLS = new Set(['TodoWrite', 'AskUserQuestion', 'ExitPlanMode', 'EnterPlanMode']);
+const CUSTOM_DISPLAY_TOOLS = new Set([
+  'TodoWrite',
+  'AskUserQuestion',
+  'ExitPlanMode',
+  'EnterPlanMode',
+]);
 
 // Tools that should auto-expand when in the last message.
 // All other tools (including MCP tools) will auto-collapse.
@@ -154,14 +157,14 @@ function extractFirstStringValue(input: Record<string, unknown>): string | null 
   // Order matters - more descriptive fields first
   const priorityKeys = [
     'description',
-    'query',       // WebSearch, context7 tools
-    'url',         // WebFetch, navigate tools
-    'action',      // MCP chrome tools (screenshot, wait, click)
-    'text',        // javascript_tool, find tools
-    'subject',     // TaskCreate
-    'skill',       // Skill tool
+    'query', // WebSearch, context7 tools
+    'url', // WebFetch, navigate tools
+    'action', // MCP chrome tools (screenshot, wait, click)
+    'text', // javascript_tool, find tools
+    'subject', // TaskCreate
+    'skill', // Skill tool
     'libraryName', // context7 resolve-library-id
-    'libraryId',   // context7 query-docs
+    'libraryId', // context7 query-docs
     'name',
     'path',
     'file',
@@ -258,7 +261,15 @@ function getToolDescription(name: string, input: Record<string, unknown>): strin
   return value || null;
 }
 
-export function ToolCallBlock({ name, input, result, isError, metadata, interactive, isLastMessage }: ToolCallBlockProps) {
+export function ToolCallBlock({
+  name,
+  input,
+  result,
+  isError,
+  metadata,
+  interactive,
+  isLastMessage,
+}: ToolCallBlockProps) {
   const [isOpen, setIsOpen] = useState(() => {
     // Interactive tools (awaiting approval) should always start expanded
     if (interactive) return true;
@@ -280,7 +291,12 @@ export function ToolCallBlock({ name, input, result, isError, metadata, interact
     if (interactive && !prevInteractive.current) {
       // Newly became interactive (needs approval)
       setIsOpen(true);
-    } else if (!interactive && prevInteractive.current && isLastMessage && !shouldAutoExpand(name)) {
+    } else if (
+      !interactive &&
+      prevInteractive.current &&
+      isLastMessage &&
+      !shouldAutoExpand(name)
+    ) {
       // Was just approved (interactive went from true to false) → collapse
       setIsOpen(false);
     }
@@ -318,7 +334,7 @@ export function ToolCallBlock({ name, input, result, isError, metadata, interact
   const isPending = !hasResult;
 
   return (
-    <View className="rounded-sm border border-border bg-background overflow-hidden">
+    <View className="border-border bg-background overflow-hidden rounded-sm border">
       <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
         <CollapsibleTrigger className="flex-row items-center gap-2 px-2.5 py-1.5">
           <Shimmer isShimmering={isPending}>
@@ -326,88 +342,101 @@ export function ToolCallBlock({ name, input, result, isError, metadata, interact
           </Shimmer>
           <View className="flex-1 flex-row items-center gap-2">
             <Shimmer isShimmering={isPending}>
-              <Text className="text-sm font-medium text-foreground">{name}</Text>
+              <Text className="text-foreground text-sm font-medium">{name}</Text>
             </Shimmer>
             {description && (
-              <Text className="flex-1 text-sm text-muted-foreground font-mono" numberOfLines={1}>
+              <Text className="text-muted-foreground flex-1 font-mono text-sm" numberOfLines={1}>
                 {description}
               </Text>
             )}
             {isPending && (
               <Shimmer isShimmering>
-                <Text className="text-xs text-muted-foreground">Running...</Text>
+                <Text className="text-muted-foreground text-xs">Running...</Text>
               </Shimmer>
             )}
           </View>
           <Icon
             as={isOpen ? ChevronDownIcon : ChevronRightIcon}
-            className="size-4 text-muted-foreground"
+            className="text-muted-foreground size-4"
           />
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <View className="gap-2 border-t border-border bg-muted/30 px-2.5 py-1.5">
-          {/* Input - custom renderers for specific tools */}
-          <View>
-            <Text className="mb-1 text-xs font-medium text-muted-foreground">Input</Text>
-            {name === 'TodoWrite' && input.todos ? (
-              <TodoListDisplay todos={input.todos as { content: string; status: 'pending' | 'in_progress' | 'completed'; activeForm?: string }[]} />
-            ) : name === 'AskUserQuestion' && input.questions ? (
-              <AskUserQuestionDisplay
-                questions={input.questions as { question: string; header: string; options: { label: string; description: string }[]; multiSelect: boolean }[]}
-                answer={normalizedResult}
-                interactive={interactive}
-              />
-            ) : name === 'ExitPlanMode' ? (
-              <PlanApprovalDisplay
-                planFilePath={input.planFilePath as string | undefined}
-                planContent={input.plan as string | undefined}
-                answer={normalizedResult}
-                interactive={interactive}
-              />
-            ) : !CUSTOM_DISPLAY_TOOLS.has(name) ? (
-              <ToolApprovalDisplay
-                toolName={name}
-                input={input}
-                answer={normalizedResult}
-                isError={isError}
-                interactive={interactive}
-              />
-            ) : (
-              <Text className="font-mono text-xs leading-relaxed text-muted-foreground">
-                {JSON.stringify(input, null, 2)}
-              </Text>
+          <View className="border-border bg-muted/30 gap-2 border-t px-2.5 py-1.5">
+            {/* Input - custom renderers for specific tools */}
+            <View>
+              <Text className="text-muted-foreground mb-1 text-xs font-medium">Input</Text>
+              {name === 'TodoWrite' && input.todos ? (
+                <TodoListDisplay
+                  todos={
+                    input.todos as {
+                      content: string;
+                      status: 'pending' | 'in_progress' | 'completed';
+                      activeForm?: string;
+                    }[]
+                  }
+                />
+              ) : name === 'AskUserQuestion' && input.questions ? (
+                <AskUserQuestionDisplay
+                  questions={
+                    input.questions as {
+                      question: string;
+                      header: string;
+                      options: { label: string; description: string }[];
+                      multiSelect: boolean;
+                    }[]
+                  }
+                  answer={normalizedResult}
+                  interactive={interactive}
+                />
+              ) : name === 'ExitPlanMode' ? (
+                <PlanApprovalDisplay
+                  planFilePath={input.planFilePath as string | undefined}
+                  planContent={input.plan as string | undefined}
+                  answer={normalizedResult}
+                  interactive={interactive}
+                />
+              ) : !CUSTOM_DISPLAY_TOOLS.has(name) ? (
+                <ToolApprovalDisplay
+                  toolName={name}
+                  input={input}
+                  answer={normalizedResult}
+                  isError={isError}
+                  interactive={interactive}
+                />
+              ) : (
+                <Text className="text-muted-foreground font-mono text-xs leading-relaxed">
+                  {JSON.stringify(input, null, 2)}
+                </Text>
+              )}
+            </View>
+
+            {/* Diff View for Edit operations */}
+            {showDiff && effectivePatches && (
+              <View className="border-border border-t pt-2">
+                <Text className="text-muted-foreground mb-1 text-xs font-medium">Changes</Text>
+                <DiffView patches={effectivePatches} />
+              </View>
             )}
-          </View>
 
-          {/* Diff View for Edit operations */}
-          {showDiff && effectivePatches && (
-            <View className="border-t border-border pt-2">
-              <Text className="mb-1 text-xs font-medium text-muted-foreground">Changes</Text>
-              <DiffView patches={effectivePatches} />
-            </View>
-          )}
-
-          {/* Result */}
-          {hasResult && !showDiff && (
-            <View className="border-t border-border pt-2">
-              <Text
-                className={cn(
-                  'mb-1 text-xs font-medium',
-                  isError ? 'text-destructive' : 'text-green-500'
-                )}
-              >
-                {isError ? 'Error' : 'Result'}
-              </Text>
-              <Text
-                className={cn(
-                  'font-mono text-xs leading-relaxed',
-                  isError ? 'text-destructive' : 'text-muted-foreground'
-                )}
-              >
-                {normalizedResult}
-              </Text>
-            </View>
-          )}
+            {/* Result */}
+            {hasResult && !showDiff && (
+              <View className="border-border border-t pt-2">
+                <Text
+                  className={cn(
+                    'mb-1 text-xs font-medium',
+                    isError ? 'text-destructive' : 'text-green-500'
+                  )}>
+                  {isError ? 'Error' : 'Result'}
+                </Text>
+                <Text
+                  className={cn(
+                    'font-mono text-xs leading-relaxed',
+                    isError ? 'text-destructive' : 'text-muted-foreground'
+                  )}>
+                  {normalizedResult}
+                </Text>
+              </View>
+            )}
           </View>
         </CollapsibleContent>
       </Collapsible>

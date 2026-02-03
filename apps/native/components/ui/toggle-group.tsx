@@ -30,7 +30,7 @@ function ToggleGroupItem({
           'items-center justify-center rounded px-3.5 py-2',
           'data-[state=on]:bg-background data-[state=on]:shadow-sm',
           Platform.select({
-            web: 'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 transition-all',
+            web: 'focus-visible:ring-ring transition-all focus-visible:ring-1 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50',
           }),
           className
         )}

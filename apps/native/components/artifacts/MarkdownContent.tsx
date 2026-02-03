@@ -24,7 +24,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
     // Headers
     if (trimmed.startsWith('### ')) {
       elements.push(
-        <Text key={key++} className="text-base font-semibold text-foreground mt-3 mb-1">
+        <Text key={key++} className="text-foreground mt-3 mb-1 text-base font-semibold">
           {trimmed.slice(4)}
         </Text>
       );
@@ -32,7 +32,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
     }
     if (trimmed.startsWith('## ')) {
       elements.push(
-        <Text key={key++} className="text-lg font-semibold text-foreground mt-4 mb-2">
+        <Text key={key++} className="text-foreground mt-4 mb-2 text-lg font-semibold">
           {trimmed.slice(3)}
         </Text>
       );
@@ -40,7 +40,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
     }
     if (trimmed.startsWith('# ')) {
       elements.push(
-        <Text key={key++} className="text-xl font-bold text-foreground mt-4 mb-2">
+        <Text key={key++} className="text-foreground mt-4 mb-2 text-xl font-bold">
           {trimmed.slice(2)}
         </Text>
       );
@@ -52,9 +52,9 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
       const indent = line.length - line.trimStart().length;
       const indentLevel = Math.floor(indent / 2);
       elements.push(
-        <View key={key++} className="flex-row mt-1" style={{ paddingLeft: indentLevel * 12 }}>
+        <View key={key++} className="mt-1 flex-row" style={{ paddingLeft: indentLevel * 12 }}>
           <Text className="text-muted-foreground mr-2">•</Text>
-          <Text className="flex-1 text-sm text-foreground leading-relaxed">
+          <Text className="text-foreground flex-1 text-sm leading-relaxed">
             {renderInlineFormatting(trimmed.slice(2))}
           </Text>
         </View>
@@ -66,9 +66,9 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
     const numberedMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
     if (numberedMatch) {
       elements.push(
-        <View key={key++} className="flex-row mt-1">
+        <View key={key++} className="mt-1 flex-row">
           <Text className="text-muted-foreground mr-2 w-5">{numberedMatch[1]}.</Text>
-          <Text className="flex-1 text-sm text-foreground leading-relaxed">
+          <Text className="text-foreground flex-1 text-sm leading-relaxed">
             {renderInlineFormatting(numberedMatch[2])}
           </Text>
         </View>
@@ -86,8 +86,8 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
         i++;
       }
       elements.push(
-        <View key={key++} className="bg-muted rounded-lg p-3 mt-2 mb-2">
-          <Text className="text-xs font-mono text-foreground">{codeContent}</Text>
+        <View key={key++} className="bg-muted mt-2 mb-2 rounded-lg p-3">
+          <Text className="text-foreground font-mono text-xs">{codeContent}</Text>
         </View>
       );
       continue;
@@ -96,7 +96,9 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
     // Inline code blocks
     if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.length > 2) {
       elements.push(
-        <Text key={key++} className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono text-foreground mt-1">
+        <Text
+          key={key++}
+          className="bg-muted text-foreground mt-1 rounded px-1.5 py-0.5 font-mono text-xs">
           {trimmed.slice(1, -1)}
         </Text>
       );
@@ -105,7 +107,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
 
     // Regular paragraph
     elements.push(
-      <Text key={key++} className="text-sm text-foreground leading-relaxed mt-1">
+      <Text key={key++} className="text-foreground mt-1 text-sm leading-relaxed">
         {renderInlineFormatting(trimmed)}
       </Text>
     );
@@ -126,7 +128,7 @@ function renderInlineFormatting(text: string): React.ReactNode {
     const codeMatch = remaining.match(/^`([^`]+)`/);
     if (codeMatch) {
       parts.push(
-        <Text key={partKey++} className="bg-muted px-1 rounded text-xs font-mono">
+        <Text key={partKey++} className="bg-muted rounded px-1 font-mono text-xs">
           {codeMatch[1]}
         </Text>
       );

@@ -8,7 +8,6 @@
     "start": "tsx src/index.tsx",
     "start:headless": "tsx src/headless.ts",
     "dev": "tsx src/index.tsx",
-    "type:check": "tsc --noEmit",
     "lint": "eslint src/"
   },
   "dependencies": {
@@ -20,7 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
-    "@types/react": "^19.2.9",
+    "@types/react": "catalog:",
     "socket.io-client": "^4.8.3",
     "tsx": "^4.19.2",
     "typescript": "catalog:"

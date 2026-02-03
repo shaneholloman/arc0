@@ -171,12 +171,16 @@ export async function handleSessionsSync(
         if (!existingProject || Object.keys(existingProject).length === 0) {
           // Extract folder name from path for display
           const projectName = session.cwd.split('/').pop() ?? session.cwd;
-          store.setRow('projects', projectId, toRow({
-            workstation_id: workstationId,
-            path: session.cwd,
-            name: projectName,
-            starred: 0,
-          }));
+          store.setRow(
+            'projects',
+            projectId,
+            toRow({
+              workstation_id: workstationId,
+              path: session.cwd,
+              name: projectName,
+              starred: 0,
+            })
+          );
           projectsCreated++;
         }
       }
@@ -224,7 +228,12 @@ export async function handleSessionsSync(
  *
  * @param projectId - Hash ID of the project (generated from projectPath)
  */
-function upsertSession(store: Store, session: SessionData, workstationId: string, projectId?: string): void {
+function upsertSession(
+  store: Store,
+  session: SessionData,
+  workstationId: string,
+  projectId?: string
+): void {
   const existing = store.getRow('sessions', session.id);
 
   if (existing && Object.keys(existing).length > 0) {
@@ -330,7 +339,11 @@ async function handleMessagesBatchInternal(
   // - merged: commands with stdout/stderr already merged (for TinyBase)
   // - outputs: all output messages (for SQLite persistence)
   // - orphanedOutputs: outputs whose parent wasn't in this batch (for late TinyBase merge)
-  const { merged: processedMessages, outputs: outputMessages, orphanedOutputs } = transformRawBatchWithOutputs(rawEnvelopes);
+  const {
+    merged: processedMessages,
+    outputs: outputMessages,
+    orphanedOutputs,
+  } = transformRawBatchWithOutputs(rawEnvelopes);
 
   debugLog('messages', 'transformed batch', {
     batchId,
@@ -413,11 +426,15 @@ async function handleMessagesBatchInternal(
     }
     const existingProject = store.getRow('projects', projectId);
     if (!existingProject || Object.keys(existingProject).length === 0) {
-      store.setRow('projects', projectId, toRow({
-        ...project,
-        workstation_id: workstationId,
-        path, // Store raw path
-      }));
+      store.setRow(
+        'projects',
+        projectId,
+        toRow({
+          ...project,
+          workstation_id: workstationId,
+          path, // Store raw path
+        })
+      );
       projectsCreated++;
     }
   }
@@ -746,10 +763,7 @@ function updateSessionStatus(store: Store, rawEnvelopes: RawMessageEnvelope[]): 
   }
 
   // Get all session IDs that have either user or assistant messages
-  const sessionIds = new Set([
-    ...lastUserBySession.keys(),
-    ...lastAssistantBySession.keys(),
-  ]);
+  const sessionIds = new Set([...lastUserBySession.keys(), ...lastAssistantBySession.keys()]);
 
   store.transaction(() => {
     for (const sessionId of sessionIds) {
@@ -793,7 +807,11 @@ function updateSessionStatus(store: Store, rawEnvelopes: RawMessageEnvelope[]): 
       // Compute status using consolidated function
       const statusInfo = computeSessionStatus({
         lastAssistantMsg: assistantContentBlocks
-          ? { contentBlocks: assistantContentBlocks, stopReason, timestamp: assistantTimestamp ?? '' }
+          ? {
+              contentBlocks: assistantContentBlocks,
+              stopReason,
+              timestamp: assistantTimestamp ?? '',
+            }
           : undefined,
         lastUserMsg: userContentBlocks
           ? { contentBlocks: userContentBlocks, timestamp: userTimestamp ?? '' }
@@ -970,10 +988,7 @@ function updateArtifactsInStore(store: Store, artifacts: ExtractedArtifact[]): v
  * Merge TaskUpdate changes into existing todos artifacts.
  * This handles the case where TaskUpdate comes in a different batch than TaskCreate.
  */
-function mergeTaskUpdatesIntoArtifacts(
-  store: Store,
-  envelopes: RawMessageEnvelope[]
-): void {
+function mergeTaskUpdatesIntoArtifacts(store: Store, envelopes: RawMessageEnvelope[]): void {
   const taskUpdates = extractTaskUpdatesFromBatch(envelopes);
   if (taskUpdates.length === 0) {
     return;

@@ -59,7 +59,9 @@ class JsonlWatcher {
     jsonlStore.addSession(sessionId, filePath, lines);
     jsonlStore.updateFilePosition(sessionId, position);
 
-    console.log(`[jsonl/watcher] Loaded ${lines.length} lines for session ${sessionId}`);
+    console.log(
+      `[jsonl/watcher] Loaded ${lines.length} lines for session ${sessionId}`,
+    );
 
     // Emit if there are lines to broadcast
     if (lines.length > 0) {
@@ -95,7 +97,9 @@ class JsonlWatcher {
     jsonlStore.appendLines(sessionId, lines);
     jsonlStore.updateFilePosition(sessionId, position);
 
-    console.log(`[jsonl/watcher] ${lines.length} new lines for session ${sessionId}`);
+    console.log(
+      `[jsonl/watcher] ${lines.length} new lines for session ${sessionId}`,
+    );
 
     // Emit event for daemon to broadcast
     eventBus.emit("messages:new", sessionId, lines);

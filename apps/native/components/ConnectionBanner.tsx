@@ -109,8 +109,7 @@ export function ConnectionBanner() {
       // 1. Connection dropped (was connected before), OR
       // 2. Page refresh and first connection failed (web only)
       const shouldShowError =
-        !shownErrorForCycleRef.current &&
-        (wasConnectedRef.current || isPageRefreshRef.current);
+        !shownErrorForCycleRef.current && (wasConnectedRef.current || isPageRefreshRef.current);
 
       if (shouldShowError) {
         shownErrorForCycleRef.current = true;
@@ -179,7 +178,8 @@ export function ConnectionBanner() {
         right: 0,
         zIndex: 100,
       }}>
-      <View className={`mx-auto mt-2 flex-row items-center gap-2 self-center rounded-full ${bgClass} px-3 py-1.5`}>
+      <View
+        className={`mx-auto mt-2 flex-row items-center gap-2 self-center rounded-full ${bgClass} px-3 py-1.5`}>
         <Icon as={IconComponent} className={`size-4 ${textClass}`} />
         <Text className={`text-sm font-medium ${textClass}`} numberOfLines={1}>
           {message}

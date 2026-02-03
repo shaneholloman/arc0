@@ -11,7 +11,9 @@ import { isCompiledBinary } from "../../shared/runtime.js";
 export async function startCommand(foreground = false): Promise<void> {
   if (await isDaemonLocked()) {
     const state = readDaemonState();
-    p.log.warn(`Daemon is already running (PID: ${state?.pid}, control: ${state?.controlPort}, socket: ${state?.socketPort})`);
+    p.log.warn(
+      `Daemon is already running (PID: ${state?.pid}, control: ${state?.controlPort}, socket: ${state?.socketPort})`,
+    );
     return;
   }
 
@@ -58,7 +60,9 @@ export async function startCommand(foreground = false): Promise<void> {
 
   if (await isDaemonLocked()) {
     const state = readDaemonState();
-    s.stop(`Daemon started (PID: ${state?.pid}, control: ${state?.controlPort}, socket: ${state?.socketPort})`);
+    s.stop(
+      `Daemon started (PID: ${state?.pid}, control: ${state?.controlPort}, socket: ${state?.socketPort})`,
+    );
   } else {
     s.stop("Failed to start daemon");
     p.log.error(`Check ${LOG_FILE} for details`);

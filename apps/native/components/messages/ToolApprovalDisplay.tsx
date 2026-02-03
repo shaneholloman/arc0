@@ -44,7 +44,7 @@ interface ToolApprovalDisplayProps {
 function getToolDescription(toolName: string, input: Record<string, unknown>): string {
   switch (toolName) {
     case 'Bash':
-      return input.description as string || input.command as string || 'Execute command';
+      return (input.description as string) || (input.command as string) || 'Execute command';
     case 'Read':
       return `Read ${input.file_path || 'file'}`;
     case 'Write':
@@ -60,7 +60,7 @@ function getToolDescription(toolName: string, input: Record<string, unknown>): s
     case 'WebSearch':
       return `Search: ${input.query || ''}`;
     case 'Task':
-      return input.description as string || 'Run task';
+      return (input.description as string) || 'Run task';
     default:
       return toolName;
   }
@@ -68,7 +68,10 @@ function getToolDescription(toolName: string, input: Record<string, unknown>): s
 
 type ToolApprovalStatus = 'pending' | 'approved' | 'rejected';
 
-function getApprovalStatus(answer: string | undefined, isError: boolean | undefined): ToolApprovalStatus {
+function getApprovalStatus(
+  answer: string | undefined,
+  isError: boolean | undefined
+): ToolApprovalStatus {
   if (answer === undefined) return 'pending';
   return isError ? 'rejected' : 'approved';
 }
@@ -109,10 +112,8 @@ export function ToolApprovalDisplay({
     <View>
       {/* Tool info */}
       <View className="mb-3">
-        <Text className="text-foreground text-sm font-medium font-mono">
-          Allow {toolName}?
-        </Text>
-        <Text className="text-muted-foreground mt-1 text-xs font-mono" numberOfLines={2}>
+        <Text className="text-foreground font-mono text-sm font-medium">Allow {toolName}?</Text>
+        <Text className="text-muted-foreground mt-1 font-mono text-xs" numberOfLines={2}>
           {description}
         </Text>
       </View>
@@ -120,7 +121,7 @@ export function ToolApprovalDisplay({
       {/* Command preview for Bash */}
       {toolName === 'Bash' && typeof input.command === 'string' && (
         <View className="bg-muted mb-3 rounded-lg p-2">
-          <Text className="font-mono text-xs text-foreground" numberOfLines={3}>
+          <Text className="text-foreground font-mono text-xs" numberOfLines={3}>
             {input.command}
           </Text>
         </View>
@@ -176,8 +177,8 @@ export function ToolApprovalDisplay({
           )}
           {approvalStatus === 'rejected' && (
             <View className="flex-row items-center gap-1.5">
-              <View className="size-2 rounded-full bg-destructive" />
-              <Text className="text-xs text-destructive">Rejected</Text>
+              <View className="bg-destructive size-2 rounded-full" />
+              <Text className="text-destructive text-xs">Rejected</Text>
             </View>
           )}
         </View>

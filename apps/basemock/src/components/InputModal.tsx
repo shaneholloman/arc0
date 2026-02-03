@@ -2,8 +2,8 @@
  * InputModal - Text input overlay for user prompts.
  */
 
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import React, { useState } from "react";
+import { Box, Text, useInput } from "ink";
 
 interface InputModalProps {
   title: string;
@@ -16,7 +16,7 @@ interface InputModalProps {
 export function InputModal({
   title,
   placeholder,
-  initialValue = '',
+  initialValue = "",
   onSubmit,
   onCancel,
 }: InputModalProps): React.ReactElement {
@@ -66,9 +66,7 @@ export function InputModal({
       </Box>
 
       <Box marginTop={1}>
-        <Text dimColor>
-          Press Enter to submit, ESC to cancel
-        </Text>
+        <Text dimColor>Press Enter to submit, ESC to cancel</Text>
       </Box>
     </Box>
   );
@@ -144,15 +142,12 @@ export function SelectModal({
       {options.map((option, index) => (
         <Box key={option.value}>
           <Text
-            color={index === selectedIndex ? 'cyan' : undefined}
+            color={index === selectedIndex ? "cyan" : undefined}
             bold={index === selectedIndex}
           >
-            {index === selectedIndex ? '> ' : '  '}
-            [{index + 1}] {option.label}
+            {index === selectedIndex ? "> " : "  "}[{index + 1}] {option.label}
           </Text>
-          {option.hint && (
-            <Text dimColor> ({option.hint})</Text>
-          )}
+          {option.hint && <Text dimColor> ({option.hint})</Text>}
         </Box>
       ))}
 
@@ -192,11 +187,11 @@ export function ConfirmModal({
       return;
     }
 
-    if (key.leftArrow || key.rightArrow || input === 'y' || input === 'n') {
-      if (input === 'y') {
+    if (key.leftArrow || key.rightArrow || input === "y" || input === "n") {
+      if (input === "y") {
         setSelected(true);
         onConfirm(true);
-      } else if (input === 'n') {
+      } else if (input === "n") {
         setSelected(false);
         onConfirm(false);
       } else {
@@ -225,19 +220,17 @@ export function ConfirmModal({
       </Box>
 
       <Box>
-        <Text color={!selected ? 'cyan' : undefined} bold={!selected}>
-          {!selected ? '> ' : '  '}[n] No
+        <Text color={!selected ? "cyan" : undefined} bold={!selected}>
+          {!selected ? "> " : "  "}[n] No
         </Text>
-        <Text>  </Text>
-        <Text color={selected ? 'cyan' : undefined} bold={selected}>
-          {selected ? '> ' : '  '}[y] Yes
+        <Text> </Text>
+        <Text color={selected ? "cyan" : undefined} bold={selected}>
+          {selected ? "> " : "  "}[y] Yes
         </Text>
       </Box>
 
       <Box marginTop={1}>
-        <Text dimColor>
-          Press y/n or ←→, Enter to confirm, ESC to cancel
-        </Text>
+        <Text dimColor>Press y/n or ←→, Enter to confirm, ESC to cancel</Text>
       </Box>
     </Box>
   );
@@ -276,7 +269,7 @@ export function WalkModal({
   });
 
   const progress = Math.round(((step + 1) / total) * 20);
-  const progressBar = '█'.repeat(progress) + '░'.repeat(20 - progress);
+  const progressBar = "█".repeat(progress) + "░".repeat(20 - progress);
 
   return (
     <Box
@@ -300,13 +293,14 @@ export function WalkModal({
       <Box marginBottom={1}>
         <Text dimColor>Progress: </Text>
         <Text color="magenta">{progressBar}</Text>
-        <Text dimColor> {step + 1}/{total}</Text>
+        <Text dimColor>
+          {" "}
+          {step + 1}/{total}
+        </Text>
       </Box>
 
       <Box>
-        <Text dimColor>
-          Press Enter to send, ESC to cancel walk
-        </Text>
+        <Text dimColor>Press Enter to send, ESC to cancel walk</Text>
       </Box>
     </Box>
   );

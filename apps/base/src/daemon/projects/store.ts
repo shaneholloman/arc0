@@ -45,7 +45,9 @@ async function extractCwdFromJsonl(filePath: string): Promise<string | null> {
  * Loads a project from an encoded directory name.
  * Scans the directory for JSONL files and extracts cwd.
  */
-async function loadProject(encodedDir: string): Promise<SocketProjectData | null> {
+async function loadProject(
+  encodedDir: string,
+): Promise<SocketProjectData | null> {
   const dirPath = join(CLAUDE_PROJECTS_PATH, encodedDir);
 
   try {

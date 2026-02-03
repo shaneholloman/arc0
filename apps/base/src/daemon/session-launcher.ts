@@ -54,11 +54,13 @@ async function isProviderInstalled(provider: ProviderId): Promise<boolean> {
  * @returns ActionResult indicating success or error
  */
 export async function launchSession(
-  payload: OpenSessionPayload
+  payload: OpenSessionPayload,
 ): Promise<ActionResult> {
   const { provider, name, cwd } = payload;
 
-  console.log(`[session-launcher] Launching session: provider=${provider} name=${name ?? "unnamed"} cwd=${cwd}`);
+  console.log(
+    `[session-launcher] Launching session: provider=${provider} name=${name ?? "unnamed"} cwd=${cwd}`,
+  );
 
   // 1. Validate cwd
   if (!cwd || cwd.trim() === "") {
@@ -82,7 +84,8 @@ export async function launchSession(
     return {
       status: "error",
       code: "TMUX_NOT_INSTALLED",
-      message: "tmux is not installed. Install tmux to create sessions from mobile.",
+      message:
+        "tmux is not installed. Install tmux to create sessions from mobile.",
     };
   }
 

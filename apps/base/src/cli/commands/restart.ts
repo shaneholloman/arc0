@@ -48,7 +48,12 @@ export async function restartCommand(): Promise<void> {
       s.stop("Daemon stopped");
     } catch (err: unknown) {
       // ESRCH means process is already dead - treat as "already stopped"
-      if (err && typeof err === "object" && "code" in err && err.code === "ESRCH") {
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        err.code === "ESRCH"
+      ) {
         removeDaemonState();
 
         // Wait for lock to release (stale lock may persist up to 10s)
@@ -104,7 +109,9 @@ export async function restartCommand(): Promise<void> {
 
   if (await isDaemonLocked()) {
     const newState = readDaemonState();
-    s.stop(`Daemon started (PID: ${newState?.pid}, control: ${newState?.controlPort}, socket: ${newState?.socketPort})`);
+    s.stop(
+      `Daemon started (PID: ${newState?.pid}, control: ${newState?.controlPort}, socket: ${newState?.socketPort})`,
+    );
   } else {
     s.stop("Failed to start daemon");
     p.log.error(`Check ${LOG_FILE} for details`);

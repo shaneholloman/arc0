@@ -1,6 +1,14 @@
 import * as Crypto from 'expo-crypto';
 import * as SQLite from 'expo-sqlite';
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { Appearance, Platform } from 'react-native';
 import type { Indexes, Queries, Relationships, Store } from 'tinybase';
 import {
@@ -51,7 +59,9 @@ export function StoreProvider({ children }: StoreProviderProps) {
   const dbRef = useRef<SQLite.SQLiteDatabase | null>(null);
   const persisterRef = useRef<Persister | null>(null);
   const themeListenerIdRef = useRef<string | null>(null);
-  const appearanceSubscriptionRef = useRef<ReturnType<typeof Appearance.addChangeListener> | null>(null);
+  const appearanceSubscriptionRef = useRef<ReturnType<typeof Appearance.addChangeListener> | null>(
+    null
+  );
 
   // Create TinyBase store with initial values and empty tables
   // Tables must be initialized before autoSave for persister to track them
@@ -142,7 +152,10 @@ export function StoreProvider({ children }: StoreProviderProps) {
 
     const closeDb = async (database: SQLite.SQLiteDatabase | null) => {
       if (!database) return;
-      const maybeDb = database as unknown as { closeAsync?: () => Promise<void>; close?: () => Promise<void> };
+      const maybeDb = database as unknown as {
+        closeAsync?: () => Promise<void>;
+        close?: () => Promise<void>;
+      };
       try {
         if (typeof maybeDb.closeAsync === 'function') {
           await maybeDb.closeAsync();
@@ -219,9 +232,8 @@ export function StoreProvider({ children }: StoreProviderProps) {
           if (isStale()) return;
 
           // Create persister with tabular mode
-          const { createExpoSqlitePersister } = await import(
-            'tinybase/persisters/persister-expo-sqlite'
-          );
+          const { createExpoSqlitePersister } =
+            await import('tinybase/persisters/persister-expo-sqlite');
           if (isStale()) return;
 
           const persister = createExpoSqlitePersister(store, database, {
@@ -346,8 +358,7 @@ export function StoreProvider({ children }: StoreProviderProps) {
         store={store}
         indexes={indexes as Indexes}
         relationships={relationships as Relationships}
-        queries={queries as Queries}
-      >
+        queries={queries as Queries}>
         {children}
       </TinyBaseProvider>
     </StoreContext.Provider>

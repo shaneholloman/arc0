@@ -363,7 +363,7 @@ export default function ChangesScreen() {
       {!overlayDismissed && (
         <Pressable
           onPress={() => setOverlayDismissed(true)}
-          className="absolute inset-0 items-center justify-center bg-background/80">
+          className="bg-background/80 absolute inset-0 items-center justify-center">
           <View className="items-center gap-4 p-6">
             <View className="bg-muted rounded-full p-4">
               <Icon as={GitBranchIcon} className="text-muted-foreground size-8" />

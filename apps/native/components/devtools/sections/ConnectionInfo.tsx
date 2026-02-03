@@ -26,7 +26,7 @@ export function ConnectionInfo() {
 
   return (
     <View className="mb-3">
-      <Text className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+      <Text className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
         Connection
       </Text>
 
@@ -35,9 +35,12 @@ export function ConnectionInfo() {
         <Badge variant={badgeVariant} className="px-2 py-0.5">
           <Text className="text-xs">{connectionState.status}</Text>
         </Badge>
-        {connectionState.reconnectAttempts !== undefined && connectionState.reconnectAttempts > 0 && (
-          <Text className="text-muted-foreground text-xs">attempt {connectionState.reconnectAttempts}</Text>
-        )}
+        {connectionState.reconnectAttempts !== undefined &&
+          connectionState.reconnectAttempts > 0 && (
+            <Text className="text-muted-foreground text-xs">
+              attempt {connectionState.reconnectAttempts}
+            </Text>
+          )}
       </View>
 
       {/* Socket URL */}

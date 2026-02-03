@@ -2,10 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
 import { useIndexes, useRow, useStore } from 'tinybase/ui-react';
 
-import {
-  loadSessionArtifacts,
-  areArtifactsLoaded,
-} from '@/lib/store/artifacts-loader';
+import { loadSessionArtifacts, areArtifactsLoaded } from '@/lib/store/artifacts-loader';
 import {
   parseTodosContent,
   parsePlanContent,

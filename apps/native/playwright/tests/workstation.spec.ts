@@ -119,7 +119,8 @@ test.describe('Workstation Add Modal', () => {
     // Wait for error message (testing state may be too brief to catch)
     // Error could be connection timeout or error message
     await expect(
-      page.locator('text=Connection timeout')
+      page
+        .locator('text=Connection timeout')
         .or(page.locator('text=error'))
         .or(page.locator('text=Failed'))
     ).toBeVisible({ timeout: 20000 });

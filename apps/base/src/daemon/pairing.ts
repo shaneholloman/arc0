@@ -113,7 +113,7 @@ export class PairingManager {
    * @returns Challenge payload to send back, or error
    */
   handlePairInit(
-    payload: PairInitPayload
+    payload: PairInitPayload,
   ): { challenge: PairChallengePayload } | { error: PairErrorPayload } {
     if (!this.session || this.session.expiresAt < new Date()) {
       return {
@@ -133,7 +133,10 @@ export class PairingManager {
       clientMessage = hexToBytes(payload.spake2Message);
     } catch (e) {
       return {
-        error: { code: "INVALID_FORMAT", message: "Invalid spake2Message format" },
+        error: {
+          code: "INVALID_FORMAT",
+          message: "Invalid spake2Message format",
+        },
       };
     }
 
@@ -160,7 +163,7 @@ export class PairingManager {
    * @returns Complete payload to send back, or error
    */
   handlePairConfirm(
-    mac: string
+    mac: string,
   ): { complete: PairCompletePayload } | { error: PairErrorPayload } {
     if (!this.session || !this.session.keyMaterial) {
       return {
@@ -183,7 +186,7 @@ export class PairingManager {
     const isValid = spake2VerifyConfirmation(
       this.session.keyMaterial,
       "client",
-      clientMac
+      clientMac,
     );
 
     if (!isValid) {
@@ -198,13 +201,13 @@ export class PairingManager {
     // Compute our confirmation MAC
     const serverMac = spake2ComputeConfirmation(
       this.session.keyMaterial,
-      "server"
+      "server",
     );
 
     // Derive keys
     const { authToken, encryptionKey } = deriveKeys(
       this.session.keyMaterial.sharedSecret,
-      this.session.keyMaterial.transcript
+      this.session.keyMaterial.transcript,
     );
 
     // Store the client with encryption key

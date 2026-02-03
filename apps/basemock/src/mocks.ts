@@ -3,22 +3,29 @@
  * Generates messages in raw Claude JSONL format (with nested message property).
  */
 
-import { randomUUID } from 'crypto';
-import type { SocketSessionData } from '@arc0/types';
-import type { ClaudeJSONLMessage, ContentBlock, CustomTitleMessage, MockSession } from './types.js';
+import { randomUUID } from "crypto";
+import type { SocketSessionData } from "@arc0/types";
+import type {
+  ClaudeJSONLMessage,
+  ContentBlock,
+  CustomTitleMessage,
+  MockSession,
+} from "./types.js";
 
 // =============================================================================
 // Session Generators
 // =============================================================================
 
-export function createMockSession(overrides: Partial<MockSession> = {}): MockSession {
+export function createMockSession(
+  overrides: Partial<MockSession> = {},
+): MockSession {
   return {
     id: randomUUID(),
-    provider: 'claude',
+    provider: "claude",
     name: null,
-    cwd: '/home/user/acme-app', // Working directory path
-    model: 'claude-sonnet-4-20250514',
-    gitBranch: 'main',
+    cwd: "/home/user/acme-app", // Working directory path
+    model: "claude-sonnet-4-20250514",
+    gitBranch: "main",
     startedAt: new Date().toISOString(),
     open: true,
     ...overrides,
@@ -31,7 +38,7 @@ export function sessionToSessionData(session: MockSession): SocketSessionData {
   return {
     id: session.id,
     provider: session.provider,
-    cwd: session.cwd ?? '', // Working directory path, mobile generates hash ID
+    cwd: session.cwd ?? "", // Working directory path, mobile generates hash ID
     name: null,
     model: null,
     gitBranch: null,
@@ -46,34 +53,34 @@ export function sessionToSessionData(session: MockSession): SocketSessionData {
 let messageCounter = 0;
 
 // Mock constants matching real Claude JSONL format
-const MOCK_VERSION = '2.1.12';
-const MOCK_MODEL = 'claude-sonnet-4-20250514';
-const MOCK_CWD = '/home/user/acme-app';
-const MOCK_GIT_BRANCH = 'main';
-const MOCK_SLUG = 'acme-demo-project';
+const MOCK_VERSION = "2.1.12";
+const MOCK_MODEL = "claude-sonnet-4-20250514";
+const MOCK_CWD = "/home/user/acme-app";
+const MOCK_GIT_BRANCH = "main";
+const MOCK_SLUG = "acme-demo-project";
 
 /**
  * Generate a mock message ID matching Claude's format.
  */
 function generateMessageId(): string {
-  return `msg_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+  return `msg_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
 }
 
 /**
  * Generate a mock request ID matching Claude's format.
  */
 function generateRequestId(): string {
-  return `req_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+  return `req_${randomUUID().replace(/-/g, "").slice(0, 24)}`;
 }
 
 function createBaseMessage(
-  type: ClaudeJSONLMessage['type'],
+  type: ClaudeJSONLMessage["type"],
   content: ContentBlock[],
   parentUuid?: string,
-  stopReason?: string | null
+  stopReason?: string | null,
 ): ClaudeJSONLMessage {
   messageCounter++;
-  const isAssistant = type === 'assistant';
+  const isAssistant = type === "assistant";
 
   return {
     // Required fields
@@ -88,22 +95,22 @@ function createBaseMessage(
       ...(isAssistant && {
         model: MOCK_MODEL,
         id: generateMessageId(),
-        type: 'message' as const,
+        type: "message" as const,
         usage: {
           input_tokens: 100 + messageCounter * 50,
           output_tokens: 200 + messageCounter * 30,
           cache_creation_input_tokens: 0,
           cache_read_input_tokens: 1000 + messageCounter * 100,
-          service_tier: 'standard',
+          service_tier: "standard",
         },
-        stop_reason: stopReason ?? 'end_turn',
+        stop_reason: stopReason ?? "end_turn",
         stop_sequence: null,
       }),
     },
     // Optional fields (matching real JSONL format)
     cwd: MOCK_CWD,
     isSidechain: false,
-    userType: 'external',
+    userType: "external",
     version: MOCK_VERSION,
     gitBranch: MOCK_GIT_BRANCH,
     slug: MOCK_SLUG,
@@ -116,48 +123,51 @@ function createBaseMessage(
 
 // User Messages
 // Note: sessionId is not part of the JSONL payload - it's in the envelope wrapper
-export function createUserTextMessage(_sessionId: string, text: string): ClaudeJSONLMessage {
-  return createBaseMessage('user', [{ type: 'text', text }]);
+export function createUserTextMessage(
+  _sessionId: string,
+  text: string,
+): ClaudeJSONLMessage {
+  return createBaseMessage("user", [{ type: "text", text }]);
 }
 
 // Assistant Messages
 export function createAssistantTextMessage(
   _sessionId: string,
   text: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
-  return createBaseMessage('assistant', [{ type: 'text', text }], parentUuid);
+  return createBaseMessage("assistant", [{ type: "text", text }], parentUuid);
 }
 
 // Mock signature for thinking blocks (matches real Claude format)
-const MOCK_THINKING_SIGNATURE = 'EvAECkYIChgCKkCMOCKSIGNATURE==';
+const MOCK_THINKING_SIGNATURE = "EvAECkYIChgCKkCMOCKSIGNATURE==";
 
 export function createAssistantWithThinking(
   _sessionId: string,
   thinking: string,
   text: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
-      { type: 'thinking', thinking, signature: MOCK_THINKING_SIGNATURE },
-      { type: 'text', text },
+      { type: "thinking", thinking, signature: MOCK_THINKING_SIGNATURE },
+      { type: "text", text },
     ],
-    parentUuid
+    parentUuid,
   );
 }
 
 export function createThinkingOnlyMessage(
   _sessionId: string,
   thinking: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
-    [{ type: 'thinking', thinking, signature: MOCK_THINKING_SIGNATURE }],
+    "assistant",
+    [{ type: "thinking", thinking, signature: MOCK_THINKING_SIGNATURE }],
     parentUuid,
-    null // stop_reason is null for thinking-only (streaming)
+    null, // stop_reason is null for thinking-only (streaming)
   );
 }
 
@@ -165,20 +175,20 @@ export function createThinkingOnlyMessage(
 export function createToolUseRead(
   _sessionId: string,
   filePath: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'Read',
+        name: "Read",
         input: { file_path: filePath },
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -186,20 +196,20 @@ export function createToolUseGrep(
   _sessionId: string,
   pattern: string,
   path?: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'Grep',
-        input: { pattern, path: path ?? '.' },
+        name: "Grep",
+        input: { pattern, path: path ?? "." },
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -207,40 +217,40 @@ export function createToolUseWrite(
   _sessionId: string,
   filePath: string,
   content: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'Write',
+        name: "Write",
         input: { file_path: filePath, content },
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
 export function createToolUseBash(
   _sessionId: string,
   command: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'Bash',
+        name: "Bash",
         input: { command },
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -252,20 +262,20 @@ export function createToolUsePermission(
   _sessionId: string,
   command: string,
   description: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'Bash',
+        name: "Bash",
         input: { command, description },
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -274,19 +284,19 @@ export function createToolResult(
   toolUseId: string,
   result: string,
   isError = false,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'user',
+    "user",
     [
       {
-        type: 'tool_result',
+        type: "tool_result",
         tool_use_id: toolUseId,
         content: result,
         is_error: isError,
       },
     ],
-    parentUuid
+    parentUuid,
   );
 }
 
@@ -319,21 +329,21 @@ export function createAskUserQuestion(
   _sessionId: string,
   question: string,
   options: string[],
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'AskUserQuestion',
+        name: "AskUserQuestion",
         input: {
           questions: [
             {
               question,
-              header: 'Choice',
-              options: options.map((label) => ({ label, description: '' })),
+              header: "Choice",
+              options: options.map((label) => ({ label, description: "" })),
               multiSelect: false,
             },
           ],
@@ -341,7 +351,7 @@ export function createAskUserQuestion(
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -354,15 +364,15 @@ export function createAskUserQuestionMultiSelect(
   question: string,
   header: string,
   options: QuestionOption[],
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'AskUserQuestion',
+        name: "AskUserQuestion",
         input: {
           questions: [
             {
@@ -376,7 +386,7 @@ export function createAskUserQuestionMultiSelect(
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -387,20 +397,20 @@ export function createAskUserQuestionMultiSelect(
 export function createAskUserQuestionMulti(
   _sessionId: string,
   questions: Question[],
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'AskUserQuestion',
+        name: "AskUserQuestion",
         input: { questions },
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -408,22 +418,35 @@ export function createAskUserQuestionMulti(
  * Create a realistic AskUserQuestion for a "next steps" decision.
  * Based on real Claude JSONL format.
  */
-export function createAskUserQuestionNextSteps(_sessionId: string, parentUuid?: string): ClaudeJSONLMessage {
+export function createAskUserQuestionNextSteps(
+  _sessionId: string,
+  parentUuid?: string,
+): ClaudeJSONLMessage {
   return createAskUserQuestionMulti(
     _sessionId,
     [
       {
-        question: 'Would you like me to create a plan to fix these issues?',
-        header: 'Next steps',
+        question: "Would you like me to create a plan to fix these issues?",
+        header: "Next steps",
         options: [
-          { label: 'Fix critical + important issues', description: 'Create a plan to fix the 5 highest priority bugs identified' },
-          { label: 'Fix all issues', description: 'Create a comprehensive plan addressing all findings' },
-          { label: 'No fixes needed', description: 'This was just for information' },
+          {
+            label: "Fix critical + important issues",
+            description:
+              "Create a plan to fix the 5 highest priority bugs identified",
+          },
+          {
+            label: "Fix all issues",
+            description: "Create a comprehensive plan addressing all findings",
+          },
+          {
+            label: "No fixes needed",
+            description: "This was just for information",
+          },
         ],
         multiSelect: false,
       },
     ],
-    parentUuid
+    parentUuid,
   );
 }
 
@@ -431,66 +454,96 @@ export function createAskUserQuestionNextSteps(_sessionId: string, parentUuid?: 
  * Create a realistic multi-question AskUserQuestion for feature configuration.
  * Tests multiple questions with different select modes.
  */
-export function createAskUserQuestionFeatureConfig(_sessionId: string, parentUuid?: string): ClaudeJSONLMessage {
+export function createAskUserQuestionFeatureConfig(
+  _sessionId: string,
+  parentUuid?: string,
+): ClaudeJSONLMessage {
   return createAskUserQuestionMulti(
     _sessionId,
     [
       {
-        question: 'Which authentication method should we use?',
-        header: 'Auth method',
+        question: "Which authentication method should we use?",
+        header: "Auth method",
         options: [
-          { label: 'JWT tokens', description: 'Stateless authentication with signed tokens' },
-          { label: 'Session cookies', description: 'Traditional server-side session management' },
-          { label: 'OAuth 2.0', description: 'Third-party authentication providers' },
+          {
+            label: "JWT tokens",
+            description: "Stateless authentication with signed tokens",
+          },
+          {
+            label: "Session cookies",
+            description: "Traditional server-side session management",
+          },
+          {
+            label: "OAuth 2.0",
+            description: "Third-party authentication providers",
+          },
         ],
         multiSelect: false,
       },
       {
-        question: 'Which features do you want to enable?',
-        header: 'Features',
+        question: "Which features do you want to enable?",
+        header: "Features",
         options: [
-          { label: 'Email verification', description: 'Require users to verify their email address' },
-          { label: 'Two-factor auth', description: 'Optional 2FA with TOTP or SMS' },
-          { label: 'Social login', description: 'Sign in with Google, GitHub, etc.' },
-          { label: 'Rate limiting', description: 'Protect against brute force attacks' },
+          {
+            label: "Email verification",
+            description: "Require users to verify their email address",
+          },
+          {
+            label: "Two-factor auth",
+            description: "Optional 2FA with TOTP or SMS",
+          },
+          {
+            label: "Social login",
+            description: "Sign in with Google, GitHub, etc.",
+          },
+          {
+            label: "Rate limiting",
+            description: "Protect against brute force attacks",
+          },
         ],
         multiSelect: true,
       },
     ],
-    parentUuid
+    parentUuid,
   );
 }
 
 /**
  * Create a realistic multi-select AskUserQuestion for selecting components.
  */
-export function createAskUserQuestionSelectComponents(_sessionId: string, parentUuid?: string): ClaudeJSONLMessage {
+export function createAskUserQuestionSelectComponents(
+  _sessionId: string,
+  parentUuid?: string,
+): ClaudeJSONLMessage {
   return createAskUserQuestionMultiSelect(
     _sessionId,
-    'Which UI components should I create for this feature?',
-    'Components',
+    "Which UI components should I create for this feature?",
+    "Components",
     [
-      { label: 'Form component', description: 'Input form with validation' },
-      { label: 'List view', description: 'Display items in a scrollable list' },
-      { label: 'Detail modal', description: 'Show item details in a modal dialog' },
-      { label: 'Filter bar', description: 'Filter and search controls' },
+      { label: "Form component", description: "Input form with validation" },
+      { label: "List view", description: "Display items in a scrollable list" },
+      {
+        label: "Detail modal",
+        description: "Show item details in a modal dialog",
+      },
+      { label: "Filter bar", description: "Filter and search controls" },
     ],
-    parentUuid
+    parentUuid,
   );
 }
 
 export function createExitPlanMode(
   _sessionId: string,
   planContent?: string,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'ExitPlanMode',
+        name: "ExitPlanMode",
         input: {
           allowedPrompts: [],
           ...(planContent ? { plan: planContent } : {}),
@@ -498,27 +551,27 @@ export function createExitPlanMode(
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
 export function createTodoWrite(
   _sessionId: string,
   todos: Array<{ content: string; status: string; activeForm: string }>,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   return createBaseMessage(
-    'assistant',
+    "assistant",
     [
       {
-        type: 'tool_use',
+        type: "tool_use",
         id: `toolu_${randomUUID().slice(0, 8)}`,
-        name: 'TodoWrite',
+        name: "TodoWrite",
         input: { todos },
       },
     ],
     parentUuid,
-    'tool_use'
+    "tool_use",
   );
 }
 
@@ -530,11 +583,11 @@ export function createTodoWrite(
 export function createTodoWriteWithCount(
   _sessionId: string,
   count: number,
-  parentUuid?: string
+  parentUuid?: string,
 ): ClaudeJSONLMessage {
   const todos = Array.from({ length: count }, (_, i) => ({
     content: `Task ${i + 1}`,
-    status: i === 0 ? 'in_progress' : 'pending',
+    status: i === 0 ? "in_progress" : "pending",
     activeForm: `Working on Task ${i + 1}`,
   }));
   return createTodoWrite(_sessionId, todos, parentUuid);
@@ -548,9 +601,12 @@ export function createTodoWriteWithCount(
  * Create a custom-title message for renaming a session.
  * This matches the raw JSONL format from Claude Code.
  */
-export function createCustomTitleMessage(sessionId: string, customTitle: string): CustomTitleMessage {
+export function createCustomTitleMessage(
+  sessionId: string,
+  customTitle: string,
+): CustomTitleMessage {
   return {
-    type: 'custom-title',
+    type: "custom-title",
     customTitle,
     sessionId,
   };
@@ -560,17 +616,22 @@ export function createCustomTitleMessage(sessionId: string, customTitle: string)
 // Sample Conversation
 // =============================================================================
 
-export function createSampleConversation(sessionId: string): ClaudeJSONLMessage[] {
+export function createSampleConversation(
+  sessionId: string,
+): ClaudeJSONLMessage[] {
   const messages: ClaudeJSONLMessage[] = [];
 
   // User asks a question
-  const userMsg = createUserTextMessage(sessionId, 'How do I implement the checkout flow?');
+  const userMsg = createUserTextMessage(
+    sessionId,
+    "How do I implement the checkout flow?",
+  );
   messages.push(userMsg);
 
   // Assistant responds with thinking
   const assistantMsg = createAssistantWithThinking(
     sessionId,
-    'The user wants to implement a checkout flow. I should explain how to create a product card component that handles cart interactions.',
+    "The user wants to implement a checkout flow. I should explain how to create a product card component that handles cart interactions.",
     `To implement the checkout flow, start with a ProductCard component:
 
 \`\`\`tsx
@@ -589,7 +650,7 @@ function ProductCard({ product }: { product: Product }) {
 \`\`\`
 
 This component displays product info and handles adding items to the cart.`,
-    userMsg.uuid
+    userMsg.uuid,
   );
   messages.push(assistantMsg);
 

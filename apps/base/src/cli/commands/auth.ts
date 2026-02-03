@@ -18,7 +18,12 @@ import {
 } from "../../shared/credentials.js";
 import { readDaemonState } from "../../shared/pid.js";
 import { isDaemonLocked } from "../../shared/lock.js";
-import { ensureFrpc, frpcExists, generateRandomSubdomain, generateFrpcConfig } from "../../shared/frpc.js";
+import {
+  ensureFrpc,
+  frpcExists,
+  generateRandomSubdomain,
+  generateFrpcConfig,
+} from "../../shared/frpc.js";
 import { performDeviceAuth, validateToken } from "../../shared/device-auth.js";
 
 const AUTH_HELP = `
@@ -129,11 +134,13 @@ async function loginSubcommand(): Promise<void> {
     console.log("");
     p.note(
       `Your tunnel URL:\n${pc.cyan(tunnelUrl)}\n\nThe tunnel will activate when you run 'arc0 start'.`,
-      "Ready!"
+      "Ready!",
     );
   } catch (error) {
     s.stop("Failed");
-    p.log.error(`Login failed: ${error instanceof Error ? error.message : error}`);
+    p.log.error(
+      `Login failed: ${error instanceof Error ? error.message : error}`,
+    );
   }
 }
 
@@ -149,7 +156,8 @@ async function logoutSubcommand(): Promise<void> {
   }
 
   const confirm = await p.confirm({
-    message: "This will clear your tunnel credentials and disable the tunnel. Continue?",
+    message:
+      "This will clear your tunnel credentials and disable the tunnel. Continue?",
   });
 
   if (p.isCancel(confirm) || !confirm) {
@@ -217,7 +225,9 @@ async function statusSubcommand(): Promise<void> {
 
   // Check mobile app secret
   if (credentials?.secret) {
-    p.log.info(`Mobile secret: ${pc.dim("configured")} (run 'arc0 auth secret' to view)`);
+    p.log.info(
+      `Mobile secret: ${pc.dim("configured")} (run 'arc0 auth secret' to view)`,
+    );
   }
 
   console.log("");
@@ -230,7 +240,9 @@ async function secretSubcommand(): Promise<void> {
   const credentials = loadCredentials();
 
   if (!credentials) {
-    p.log.error("No credentials found. Start the daemon first with 'arc0 start'.");
+    p.log.error(
+      "No credentials found. Start the daemon first with 'arc0 start'.",
+    );
     return;
   }
 
@@ -248,7 +260,7 @@ async function secretSubcommand(): Promise<void> {
 
   p.note(
     "Enter this secret in the Arc0 mobile app to connect.\nKeep it private - anyone with this secret can connect to your daemon.",
-    "Instructions"
+    "Instructions",
   );
 }
 
@@ -260,7 +272,8 @@ async function regenerateSubcommand(): Promise<void> {
 
   if (existing) {
     const confirm = await p.confirm({
-      message: "This will invalidate all existing mobile app connections. Continue?",
+      message:
+        "This will invalidate all existing mobile app connections. Continue?",
     });
 
     if (p.isCancel(confirm) || !confirm) {
@@ -275,7 +288,9 @@ async function regenerateSubcommand(): Promise<void> {
     : ensureCredentials();
 
   const { CREDENTIALS_FILE } = await import("../../shared/config.js");
-  writeFileSync(CREDENTIALS_FILE, JSON.stringify(newCredentials, null, 2), { mode: 0o600 });
+  writeFileSync(CREDENTIALS_FILE, JSON.stringify(newCredentials, null, 2), {
+    mode: 0o600,
+  });
 
   const copied = copyToClipboard(newCredentials.secret);
 
@@ -287,7 +302,9 @@ async function regenerateSubcommand(): Promise<void> {
     p.log.success("Copied to clipboard!");
   }
 
-  p.log.warn("Restart the daemon for the new secret to take effect: arc0 stop && arc0 start");
+  p.log.warn(
+    "Restart the daemon for the new secret to take effect: arc0 stop && arc0 start",
+  );
 }
 
 /**

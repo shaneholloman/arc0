@@ -108,7 +108,11 @@ export function processMessages(messages: ClaudeJSONLMessage[]): ProcessedMessag
  *
  * @param projectId - Hash ID of the project (generated from projectPath by caller)
  */
-export function processSession(session: SessionData, workstationId: string, projectId?: string): ProcessedSession {
+export function processSession(
+  session: SessionData,
+  workstationId: string,
+  projectId?: string
+): ProcessedSession {
   // Note: 'id' is NOT returned - it's the row ID (rowIdColumnName: 'id')
   return {
     name: session.name ?? '',
@@ -151,7 +155,9 @@ export function processSessions(
  * Returns null if message has no cwd.
  * Note: Caller is responsible for generating project ID from path.
  */
-export function extractProject(msg: ClaudeJSONLMessage): { path: string; data: ProcessedProject } | null {
+export function extractProject(
+  msg: ClaudeJSONLMessage
+): { path: string; data: ProcessedProject } | null {
   if (!msg.cwd) return null;
 
   // Extract folder name as display name

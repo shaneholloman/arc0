@@ -18,7 +18,8 @@ export function parseJsonlLine(line: string): StoredLine | null {
 
     // Extract fields needed for filtering
     const type = typeof parsed.type === "string" ? parsed.type : "unknown";
-    const timestamp = typeof parsed.timestamp === "string" ? parsed.timestamp : "";
+    const timestamp =
+      typeof parsed.timestamp === "string" ? parsed.timestamp : "";
     const uuid = typeof parsed.uuid === "string" ? parsed.uuid : undefined;
 
     return {
@@ -37,7 +38,10 @@ export function parseJsonlLine(line: string): StoredLine | null {
  * Read and parse an entire JSONL file.
  * Returns array of StoredLines and the final byte position.
  */
-export function readJsonlFile(filePath: string): { lines: StoredLine[]; position: number } {
+export function readJsonlFile(filePath: string): {
+  lines: StoredLine[];
+  position: number;
+} {
   try {
     const content = readFileSync(filePath, "utf-8");
     const lines: StoredLine[] = [];
@@ -65,7 +69,7 @@ export function readJsonlFile(filePath: string): { lines: StoredLine[]; position
  */
 export function readJsonlFileFrom(
   filePath: string,
-  fromPosition: number
+  fromPosition: number,
 ): { lines: StoredLine[]; position: number } {
   try {
     const stats = statSync(filePath);
@@ -106,7 +110,10 @@ export function readJsonlFileFrom(
     const newPosition = fromPosition + lastNewline + 1;
     return { lines, position: newPosition };
   } catch (error) {
-    console.error(`[jsonl/reader] Error reading from position ${fromPosition}:`, error);
+    console.error(
+      `[jsonl/reader] Error reading from position ${fromPosition}:`,
+      error,
+    );
     return { lines: [], position: fromPosition };
   }
 }

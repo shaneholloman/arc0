@@ -53,13 +53,19 @@ interface CreateSessionModalProps {
  * Modal for creating a new session.
  * Uses the openSession action to create sessions via Socket.IO.
  */
-export function CreateSessionModal({ visible, onClose, defaultProjectId }: CreateSessionModalProps) {
+export function CreateSessionModal({
+  visible,
+  onClose,
+  defaultProjectId,
+}: CreateSessionModalProps) {
   const { theme } = useUniwind();
   const colors = THEME[theme ?? 'light'];
   const insets = useSafeAreaInsets();
   const [provider, setProvider] = useState<LocalProviderId>('claude-code');
   const [sessionName, setSessionName] = useState('');
-  const [selectedProject, setSelectedProject] = useState<{ value: string; label: string } | undefined>(undefined);
+  const [selectedProject, setSelectedProject] = useState<
+    { value: string; label: string } | undefined
+  >(undefined);
   const [error, setError] = useState<string | null>(null);
 
   const activeWorkstationId = useActiveWorkstationId();
@@ -69,7 +75,9 @@ export function CreateSessionModal({ visible, onClose, defaultProjectId }: Creat
 
   // Get active session's project to use as default
   const activeSessionId = useValue('active_session_id') as string | undefined;
-  const activeSessionRow = useRow('sessions', activeSessionId ?? '') as { project_id?: string } | undefined;
+  const activeSessionRow = useRow('sessions', activeSessionId ?? '') as
+    | { project_id?: string }
+    | undefined;
   const activeProjectId = activeSessionRow?.project_id;
 
   // Compute default project: prop > active session's project > first project
@@ -168,109 +176,112 @@ export function CreateSessionModal({ visible, onClose, defaultProjectId }: Creat
       />
 
       {/* Modal with keyboard avoiding */}
-      <KeyboardStickyView offset={{ opened: 0, closed: 0 }} className="absolute bottom-0 left-0 right-0">
+      <KeyboardStickyView
+        offset={{ opened: 0, closed: 0 }}
+        className="absolute right-0 bottom-0 left-0">
         <View
           className="bg-background border-border rounded-t-2xl border-t"
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-4 py-4">
-          <Text className="text-lg font-semibold">New Session</Text>
-          <Pressable
-            onPress={handleClose}
-            disabled={isLoading}
-            className="active:bg-accent rounded-lg p-2 disabled:opacity-50"
-            accessibilityRole="button"
-            accessibilityLabel="Close">
-            <Icon as={XIcon} className="text-muted-foreground size-5" />
-          </Pressable>
-        </View>
-
-        {/* Form */}
-        <View className="gap-6 px-4">
-          {/* Provider Selection */}
-          <View className="gap-3">
-            <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-              Provider
-            </Text>
-            <RadioGroup
-              value={provider}
-              onValueChange={(val) => val && setProvider(val as LocalProviderId)}>
-              {PROVIDER_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  onPress={() => !isLoading && setProvider(option.value)}
-                  disabled={isLoading}
-                  className="flex-row items-center gap-3 py-2 disabled:opacity-50">
-                  <RadioGroupItem value={option.value} disabled={isLoading} />
-                  <ProviderIcon providerId={option.value} size={20} showBackground={false} />
-                  <Text className="text-foreground">{option.label}</Text>
-                </Pressable>
-              ))}
-            </RadioGroup>
+          {/* Header */}
+          <View className="flex-row items-center justify-between px-4 py-4">
+            <Text className="text-lg font-semibold">New Session</Text>
+            <Pressable
+              onPress={handleClose}
+              disabled={isLoading}
+              className="active:bg-accent rounded-lg p-2 disabled:opacity-50"
+              accessibilityRole="button"
+              accessibilityLabel="Close">
+              <Icon as={XIcon} className="text-muted-foreground size-5" />
+            </Pressable>
           </View>
 
-          {/* Project Selection */}
-          {projects.length > 0 && (
+          {/* Form */}
+          <View className="gap-6 px-4">
+            {/* Provider Selection */}
             <View className="gap-3">
-              <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-                Project
+              <Text className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                Provider
               </Text>
-              <Select
-                value={selectedProject}
-                onValueChange={setSelectedProject}>
-                <SelectTrigger disabled={isLoading} className="w-full">
-                  <SelectValue
-                    placeholder="Select a project"
-                    style={!selectedProject ? { color: colors.mutedForeground } : undefined}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  <NativeSelectScrollView>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id} label={truncatePath(project.path, 40)}>
-                        {truncatePath(project.path, 40)}
-                      </SelectItem>
-                    ))}
-                  </NativeSelectScrollView>
-                </SelectContent>
-              </Select>
+              <RadioGroup
+                value={provider}
+                onValueChange={(val) => val && setProvider(val as LocalProviderId)}>
+                {PROVIDER_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => !isLoading && setProvider(option.value)}
+                    disabled={isLoading}
+                    className="flex-row items-center gap-3 py-2 disabled:opacity-50">
+                    <RadioGroupItem value={option.value} disabled={isLoading} />
+                    <ProviderIcon providerId={option.value} size={20} showBackground={false} />
+                    <Text className="text-foreground">{option.label}</Text>
+                  </Pressable>
+                ))}
+              </RadioGroup>
             </View>
-          )}
 
-          {/* Session Name */}
-          <View className="gap-3">
-            <Text className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-              Session Name (Optional)
-            </Text>
-            <TextInput
-              placeholder="Enter a name for this session"
-              placeholderTextColor={colors.mutedForeground}
-              value={sessionName}
-              onChangeText={setSessionName}
-              editable={!isLoading}
-              className="border-border bg-background text-foreground rounded-lg border px-4 py-3"
-            />
-          </View>
-
-          {/* Error Message */}
-          {error && (
-            <View className="bg-destructive/10 rounded-lg px-4 py-3">
-              <Text className="text-destructive text-sm">{error}</Text>
-            </View>
-          )}
-
-          {/* Submit Button */}
-          <Button onPress={handleSubmit} disabled={isLoading} className="mt-2">
-            {isLoading ? (
-              <View className="flex-row items-center gap-2">
-                <ActivityIndicator size="small" color="white" />
-                <Text className="text-primary-foreground">Creating...</Text>
+            {/* Project Selection */}
+            {projects.length > 0 && (
+              <View className="gap-3">
+                <Text className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                  Project
+                </Text>
+                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                  <SelectTrigger disabled={isLoading} className="w-full">
+                    <SelectValue
+                      placeholder="Select a project"
+                      style={!selectedProject ? { color: colors.mutedForeground } : undefined}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <NativeSelectScrollView>
+                      {projects.map((project) => (
+                        <SelectItem
+                          key={project.id}
+                          value={project.id}
+                          label={truncatePath(project.path, 40)}>
+                          {truncatePath(project.path, 40)}
+                        </SelectItem>
+                      ))}
+                    </NativeSelectScrollView>
+                  </SelectContent>
+                </Select>
               </View>
-            ) : (
-              <Text>Create Session</Text>
             )}
-          </Button>
-        </View>
+
+            {/* Session Name */}
+            <View className="gap-3">
+              <Text className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+                Session Name (Optional)
+              </Text>
+              <TextInput
+                placeholder="Enter a name for this session"
+                placeholderTextColor={colors.mutedForeground}
+                value={sessionName}
+                onChangeText={setSessionName}
+                editable={!isLoading}
+                className="border-border bg-background text-foreground rounded-lg border px-4 py-3"
+              />
+            </View>
+
+            {/* Error Message */}
+            {error && (
+              <View className="bg-destructive/10 rounded-lg px-4 py-3">
+                <Text className="text-destructive text-sm">{error}</Text>
+              </View>
+            )}
+
+            {/* Submit Button */}
+            <Button onPress={handleSubmit} disabled={isLoading} className="mt-2">
+              {isLoading ? (
+                <View className="flex-row items-center gap-2">
+                  <ActivityIndicator size="small" color="white" />
+                  <Text className="text-primary-foreground">Creating...</Text>
+                </View>
+              ) : (
+                <Text>Create Session</Text>
+              )}
+            </Button>
+          </View>
         </View>
       </KeyboardStickyView>
     </Portal>

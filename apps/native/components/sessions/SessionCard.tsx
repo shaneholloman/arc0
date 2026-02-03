@@ -50,7 +50,7 @@ export function SessionCard({ session, isSelected = false, onPress }: SessionCar
       accessibilityRole="button"
       accessibilityLabel={`Session: ${displayName}. Status: ${statusInfo.label}`}
       onPress={handlePress}
-      className={`mx-2 mb-2 rounded-sm border border-border px-2.5 py-2 active:opacity-80 ${isSelected ? 'bg-card' : 'bg-background'}`}>
+      className={`border-border mx-2 mb-2 rounded-sm border px-2.5 py-2 active:opacity-80 ${isSelected ? 'bg-card' : 'bg-background'}`}>
       <View className="flex-row items-start gap-2">
         {/* Status indicator */}
         {isAnimated ? (
@@ -72,14 +72,14 @@ export function SessionCard({ session, isSelected = false, onPress }: SessionCar
 
           {/* Status/time and branch */}
           <View className="flex-row items-center gap-2">
-            <Text className={`text-xs font-mono ${colors.text}`} numberOfLines={1}>
+            <Text className={`font-mono text-xs ${colors.text}`} numberOfLines={1}>
               {showTime ? timeAgo : statusInfo.label}
             </Text>
 
             {session.gitBranch && (
               <View className="bg-muted flex-row items-center gap-1 rounded-sm px-1.5 py-0.5">
                 <Icon as={GitBranchIcon} className="text-muted-foreground size-3" />
-                <Text className="text-muted-foreground text-xs font-mono" numberOfLines={1}>
+                <Text className="text-muted-foreground font-mono text-xs" numberOfLines={1}>
                   {session.gitBranch}
                 </Text>
               </View>
@@ -89,7 +89,7 @@ export function SessionCard({ session, isSelected = false, onPress }: SessionCar
           {/* Project path */}
           <View className="mt-0.5 flex-row items-center gap-1">
             <Icon as={FolderIcon} className="text-muted-foreground size-3" />
-            <Text className="text-muted-foreground text-xs font-mono" numberOfLines={1}>
+            <Text className="text-muted-foreground font-mono text-xs" numberOfLines={1}>
               {projectPath}
             </Text>
           </View>

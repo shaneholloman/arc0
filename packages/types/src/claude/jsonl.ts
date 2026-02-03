@@ -104,7 +104,7 @@ export const claudeFileHistorySnapshotLineSchema = z.object({
       path: z.string(),
       content: z.string().optional(),
       hash: z.string().optional(),
-    })
+    }),
   ),
 });
 

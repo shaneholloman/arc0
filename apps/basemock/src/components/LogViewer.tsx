@@ -2,10 +2,10 @@
  * LogViewer - Displays scrollable log entries in the right pane.
  */
 
-import React from 'react';
-import { Box, Text } from 'ink';
-import type { LogEntry, LogLevel } from '../logger.js';
-import { formatLogTime } from '../logger.js';
+import React from "react";
+import { Box, Text } from "ink";
+import type { LogEntry, LogLevel } from "../logger.js";
+import { formatLogTime } from "../logger.js";
 
 interface LogViewerProps {
   logs: LogEntry[];
@@ -14,17 +14,17 @@ interface LogViewerProps {
 }
 
 const levelColors: Record<LogLevel, string> = {
-  info: 'cyan',
-  success: 'green',
-  warn: 'yellow',
-  error: 'red',
+  info: "cyan",
+  success: "green",
+  warn: "yellow",
+  error: "red",
 };
 
 const levelIcons: Record<LogLevel, string> = {
-  info: 'i',
-  success: '✓',
-  warn: '!',
-  error: '✗',
+  info: "i",
+  success: "✓",
+  warn: "!",
+  error: "✗",
 };
 
 export function LogViewer({
@@ -63,7 +63,9 @@ export function LogViewer({
             <Text wrap="truncate">
               <Text dimColor>[{formatLogTime(entry.timestamp)}]</Text>
               <Text> </Text>
-              <Text color={levelColors[entry.level]}>{levelIcons[entry.level]}</Text>
+              <Text color={levelColors[entry.level]}>
+                {levelIcons[entry.level]}
+              </Text>
               <Text> </Text>
               <Text color={levelColors[entry.level]}>{entry.message}</Text>
               {entry.details && <Text dimColor> {entry.details}</Text>}

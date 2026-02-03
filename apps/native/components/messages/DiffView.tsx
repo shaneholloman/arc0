@@ -28,10 +28,9 @@ function DiffLine({ line, lineNumber }: DiffLineProps) {
         isAddition && 'bg-green-900/30',
         isDeletion && 'bg-red-900/30',
         isHunk && 'bg-accent/20'
-      )}
-    >
+      )}>
       {lineNumber !== undefined && (
-        <Text className="w-8 px-1 text-right font-mono text-xs text-muted-foreground">
+        <Text className="text-muted-foreground w-8 px-1 text-right font-mono text-xs">
           {lineNumber}
         </Text>
       )}
@@ -42,8 +41,7 @@ function DiffLine({ line, lineNumber }: DiffLineProps) {
           isDeletion && 'text-red-500',
           isHunk && 'text-accent-foreground',
           !isAddition && !isDeletion && !isHunk && 'text-muted-foreground'
-        )}
-      >
+        )}>
         {prefix}
       </Text>
       <Text
@@ -51,8 +49,7 @@ function DiffLine({ line, lineNumber }: DiffLineProps) {
           'flex-1 pr-2 font-mono text-xs',
           isHunk && 'text-accent-foreground',
           !isHunk && 'text-foreground'
-        )}
-      >
+        )}>
         {isHunk ? line : content}
       </Text>
     </View>
@@ -62,14 +59,14 @@ function DiffLine({ line, lineNumber }: DiffLineProps) {
 export function DiffView({ patches }: DiffViewProps) {
   if (!patches || patches.length === 0) {
     return (
-      <View className="rounded-sm border border-border bg-muted/30 px-3 py-2">
-        <Text className="text-xs text-muted-foreground italic">No diff available</Text>
+      <View className="border-border bg-muted/30 rounded-sm border px-3 py-2">
+        <Text className="text-muted-foreground text-xs italic">No diff available</Text>
       </View>
     );
   }
 
   return (
-    <View className="overflow-hidden rounded-sm border border-border">
+    <View className="border-border overflow-hidden rounded-sm border">
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View className="min-w-full">
           {patches.map((patch, patchIndex) => {

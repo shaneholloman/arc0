@@ -60,7 +60,9 @@ test.describe('Drawer Navigation - No Workstations', () => {
     await expect(sessionsTab).toBeVisible();
   });
 
-  test('clicking projects tab shows appropriate content based on screen size', async ({ page }, testInfo) => {
+  test('clicking projects tab shows appropriate content based on screen size', async ({
+    page,
+  }, testInfo) => {
     await page.locator(testId(TEST_IDS.PROJECTS_TAB)).click();
 
     // On desktop (persistent drawer): shows "Projects view coming soon" in drawer
@@ -82,7 +84,9 @@ test.describe('Drawer Navigation - Mobile Viewport', () => {
     await initializeApp(page, { clearStore: true });
   });
 
-  test('drawer content is still visible on narrow screens (web drawer is always open on home)', async ({ page }) => {
+  test('drawer content is still visible on narrow screens (web drawer is always open on home)', async ({
+    page,
+  }) => {
     // On mobile web, the drawer should show welcome content
     // Use .first() because it appears in both drawer and main content
     await expect(page.locator('text=Welcome to Arc0').first()).toBeVisible();

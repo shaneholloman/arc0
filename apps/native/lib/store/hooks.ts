@@ -413,7 +413,10 @@ export function useEffectiveSessionStatus(session: Session): StatusInfo {
     }
 
     // Check if approveToolUse (unified tool response action) is in-flight for this session
-    if (actionStates.approveToolUse.isLoading && actionStates.approveToolUse.sessionId === session.id) {
+    if (
+      actionStates.approveToolUse.isLoading &&
+      actionStates.approveToolUse.sessionId === session.id
+    ) {
       return { status: 'submitting', label: 'Submitting...', isAnimated: true };
     }
 
@@ -578,7 +581,9 @@ export function useProjects(): Array<{ id: string; path: string; name: string; s
 /**
  * Get a single project by ID.
  */
-export function useProject(projectId: string): { id: string; path: string; name: string; starred: boolean } | null {
+export function useProject(
+  projectId: string
+): { id: string; path: string; name: string; starred: boolean } | null {
   const row = useRow('projects', projectId) as ProjectRow;
 
   return useMemo(() => {

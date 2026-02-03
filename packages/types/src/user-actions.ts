@@ -10,7 +10,12 @@ import { providerIdSchema } from "./enums";
 // Enums
 // =============================================================================
 
-export const modelIdSchema = z.enum(["default", "opus-4.5", "sonnet-4.5", "haiku-4.5"]);
+export const modelIdSchema = z.enum([
+  "default",
+  "opus-4.5",
+  "sonnet-4.5",
+  "haiku-4.5",
+]);
 export type ModelId = z.infer<typeof modelIdSchema>;
 
 export const promptModeSchema = z.enum(["default", "bypass", "ask", "plan"]);
@@ -37,7 +42,11 @@ export type PlanApprovalOption = z.infer<typeof planApprovalOptionSchema>;
  * 2 = Approve always (allow this tool for the session)
  * 3 = Reject (deny this tool call)
  */
-export const toolApprovalOptionSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
+export const toolApprovalOptionSchema = z.union([
+  z.literal(1),
+  z.literal(2),
+  z.literal(3),
+]);
 export type ToolApprovalOption = z.infer<typeof toolApprovalOptionSchema>;
 
 /**
@@ -184,4 +193,5 @@ export const USER_ACTION_EVENTS = {
   APPROVE_TOOL_USE: "approveToolUse",
 } as const;
 
-export type UserActionEvent = (typeof USER_ACTION_EVENTS)[keyof typeof USER_ACTION_EVENTS];
+export type UserActionEvent =
+  (typeof USER_ACTION_EVENTS)[keyof typeof USER_ACTION_EVENTS];

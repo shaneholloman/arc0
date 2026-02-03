@@ -81,11 +81,7 @@ export function SyncSuccessModal({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleRequestClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleRequestClose}>
       <Pressable
         className="flex-1 items-center justify-center bg-black/50 p-4"
         onPress={handleBackdropPress}>
@@ -110,7 +106,7 @@ export function SyncSuccessModal({
                   hitSlop={8}
                   accessibilityLabel="Close"
                   accessibilityRole="button"
-                  className="absolute right-4 top-4 active:opacity-70">
+                  className="absolute top-4 right-4 active:opacity-70">
                   <Icon as={XIcon} className="text-muted-foreground size-5" />
                 </Pressable>
               )}

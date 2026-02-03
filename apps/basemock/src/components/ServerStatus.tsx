@@ -2,10 +2,10 @@
  * ServerStatus - Displays server and session status at top of right pane.
  */
 
-import React from 'react';
-import { Box, Text } from 'ink';
-import type { MockSession } from '../types.js';
-import type { ClientInfo } from '../server.js';
+import React from "react";
+import { Box, Text } from "ink";
+import type { MockSession } from "../types.js";
+import type { ClientInfo } from "../server.js";
 
 interface ServerStatusProps {
   running: boolean;
@@ -43,8 +43,10 @@ export function ServerStatus({
         <Text bold>Session: </Text>
         {currentSession ? (
           <>
-            <Text color="cyan">{currentSession.name ?? currentSession.id.slice(0, 8)}</Text>
-            <Text dimColor> ({currentSession.open ? 'open' : 'closed'})</Text>
+            <Text color="cyan">
+              {currentSession.name ?? currentSession.id.slice(0, 8)}
+            </Text>
+            <Text dimColor> ({currentSession.open ? "open" : "closed"})</Text>
           </>
         ) : (
           <Text dimColor>None</Text>
@@ -60,7 +62,9 @@ export function ServerStatus({
             {clients.map((c, i) => (
               <Text key={c.socketId}>
                 {i > 0 && <Text dimColor> | </Text>}
-                <Text color="yellow">{c.deviceId ?? c.socketId.slice(0, 6)}</Text>
+                <Text color="yellow">
+                  {c.deviceId ?? c.socketId.slice(0, 6)}
+                </Text>
               </Text>
             ))}
           </Text>

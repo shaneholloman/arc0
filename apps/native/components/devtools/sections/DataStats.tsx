@@ -19,7 +19,13 @@ interface StoreSizes {
 const TINYBASE_TABLES = ['sessions', 'messages', 'projects', 'workstations'] as const;
 
 // SQLite tables (includes tinybase_values which is auto-managed)
-const SQLITE_TABLES = ['sessions', 'messages', 'projects', 'workstations', 'tinybase_values'] as const;
+const SQLITE_TABLES = [
+  'sessions',
+  'messages',
+  'projects',
+  'workstations',
+  'tinybase_values',
+] as const;
 
 // SQLite views
 const SQLITE_VIEWS = ['open_sessions', 'open_messages'] as const;
@@ -35,7 +41,10 @@ export function DataStats() {
   const { db, isReady } = useStoreContext();
   const [sqliteTableStats, setSqliteTableStats] = useState<Record<string, SQLiteStats>>({});
   const [sqliteViewStats, setSqliteViewStats] = useState<Record<string, SQLiteStats>>({});
-  const [storeSizes, setStoreSizes] = useState<StoreSizes>({ sqliteBytes: null, tinybaseBytes: null });
+  const [storeSizes, setStoreSizes] = useState<StoreSizes>({
+    sqliteBytes: null,
+    tinybaseBytes: null,
+  });
   const [loading, setLoading] = useState(Platform.OS !== 'web');
 
   // Calculate TinyBase store size (estimate via JSON serialization)
@@ -151,11 +160,12 @@ export function DataStats() {
         ts = typeof r.timestamp === 'string' ? r.timestamp : null;
       } else if (table === 'sessions') {
         // Prefer last_message_at, fall back to started_at
-        ts = typeof r.last_message_at === 'string' && r.last_message_at
-          ? r.last_message_at
-          : typeof r.started_at === 'string'
-            ? r.started_at
-            : null;
+        ts =
+          typeof r.last_message_at === 'string' && r.last_message_at
+            ? r.last_message_at
+            : typeof r.started_at === 'string'
+              ? r.started_at
+              : null;
       }
       // projects and workstations don't have timestamp fields in TinyBase
 
@@ -178,7 +188,7 @@ export function DataStats() {
   return (
     <View>
       {/* Size Section */}
-      <Text className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+      <Text className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
         Storage
       </Text>
       <View className="mb-3">
@@ -195,7 +205,7 @@ export function DataStats() {
       </View>
 
       {/* Tables Section */}
-      <Text className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+      <Text className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
         Tables
       </Text>
       <View className="border-border mb-1 flex-row items-center border-b pb-1">
@@ -221,13 +231,21 @@ export function DataStats() {
 
             return (
               <View key={table} className="flex-row items-center py-0.5">
-                <Text className="w-28 text-xs" numberOfLines={1}>{table}</Text>
-                <Text className="w-8 text-center text-xs">{tinyCount !== null ? tinyCount : '-'}</Text>
-                <Text className="text-muted-foreground w-12 text-right text-xs">{formatTime(tinyLatest)}</Text>
+                <Text className="w-28 text-xs" numberOfLines={1}>
+                  {table}
+                </Text>
+                <Text className="w-8 text-center text-xs">
+                  {tinyCount !== null ? tinyCount : '-'}
+                </Text>
+                <Text className="text-muted-foreground w-12 text-right text-xs">
+                  {formatTime(tinyLatest)}
+                </Text>
                 {!isWeb && (
                   <>
                     <Text className="w-8 text-center text-xs">{sqliteData?.count ?? '-'}</Text>
-                    <Text className="text-muted-foreground w-12 text-right text-xs">{formatTime(sqliteData?.latest ?? null)}</Text>
+                    <Text className="text-muted-foreground w-12 text-right text-xs">
+                      {formatTime(sqliteData?.latest ?? null)}
+                    </Text>
                   </>
                 )}
               </View>
@@ -239,7 +257,7 @@ export function DataStats() {
       {/* Views Section */}
       {!isWeb && !loading && (
         <>
-          <Text className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+          <Text className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
             Views
           </Text>
           <View className="border-border mb-1 flex-row items-center border-b pb-1">
@@ -254,7 +272,9 @@ export function DataStats() {
                 <View key={view} className="flex-row items-center py-0.5">
                   <Text className="flex-1 text-xs">{view}</Text>
                   <Text className="w-8 text-center text-xs">{viewData?.count ?? '-'}</Text>
-                  <Text className="text-muted-foreground w-12 text-right text-xs">{formatTime(viewData?.latest ?? null)}</Text>
+                  <Text className="text-muted-foreground w-12 text-right text-xs">
+                    {formatTime(viewData?.latest ?? null)}
+                  </Text>
                 </View>
               );
             })}
@@ -263,7 +283,7 @@ export function DataStats() {
       )}
 
       {/* Values/Preferences Section */}
-      <Text className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+      <Text className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
         Values
       </Text>
       <View className="border-border mb-1 flex-row items-center border-b pb-1">
@@ -274,7 +294,9 @@ export function DataStats() {
         {TINYBASE_VALUES.map((key) => (
           <View key={key} className="flex-row items-center py-0.5">
             <Text className="flex-1 text-xs">{key}</Text>
-            <Text className="flex-1 text-right font-mono text-xs" numberOfLines={1}>{getTinyBaseValue(key)}</Text>
+            <Text className="flex-1 text-right font-mono text-xs" numberOfLines={1}>
+              {getTinyBaseValue(key)}
+            </Text>
           </View>
         ))}
       </View>

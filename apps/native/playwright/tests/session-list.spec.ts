@@ -14,7 +14,10 @@ test.describe('Connection Status', () => {
     await initializeApp(page, { clearStore: true });
   });
 
-  test('connection indicator shows connected after adding workstation', async ({ page, basemock }) => {
+  test('connection indicator shows connected after adding workstation', async ({
+    page,
+    basemock,
+  }) => {
     // Add workstation pointing to basemock
     await basemock.addWorkstationViaUI(page, 'Test Workstation');
 

@@ -29,7 +29,9 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
   /**
    * Find the tmux pane for a session.
    */
-  async function findPaneForSession(sessionId: string): Promise<{ target: string } | { error: ActionResult }> {
+  async function findPaneForSession(
+    sessionId: string,
+  ): Promise<{ target: string } | { error: ActionResult }> {
     const session = deps.getSession(sessionId);
 
     if (!session) {
@@ -72,7 +74,9 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
      * Send a prompt to a session.
      */
     async sendPrompt(payload: SendPromptPayload): Promise<ActionResult> {
-      console.log(`[actions] sendPrompt: session=${payload.sessionId} text="${payload.text.slice(0, 50)}..."`);
+      console.log(
+        `[actions] sendPrompt: session=${payload.sessionId} text="${payload.text.slice(0, 50)}..."`,
+      );
 
       const result = await findPaneForSession(payload.sessionId);
       if ("error" in result) return result.error;
@@ -94,8 +98,12 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
      * Unified tool response handler (permission, plan approval, answers).
      * Handles all tool_use responses via the discriminated union.
      */
-    async approveToolUse(payload: ApproveToolUsePayload): Promise<ActionResult> {
-      console.log(`[actions] approveToolUse: session=${payload.sessionId} tool=${payload.toolName} type=${payload.response.type}`);
+    async approveToolUse(
+      payload: ApproveToolUsePayload,
+    ): Promise<ActionResult> {
+      console.log(
+        `[actions] approveToolUse: session=${payload.sessionId} tool=${payload.toolName} type=${payload.response.type}`,
+      );
 
       const result = await findPaneForSession(payload.sessionId);
       if ("error" in result) return result.error;
@@ -103,7 +111,11 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
       switch (payload.response.type) {
         case "tool": {
           // Regular tool permission: send option number (1, 2, or 3)
-          const success = await sendToPane(result.target, String(payload.response.option), false);
+          const success = await sendToPane(
+            result.target,
+            String(payload.response.option),
+            false,
+          );
           if (!success) {
             return {
               status: "error",
@@ -116,7 +128,11 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
 
         case "plan": {
           // ExitPlanMode: send option number (1-4)
-          const success = await sendToPane(result.target, String(payload.response.option), false);
+          const success = await sendToPane(
+            result.target,
+            String(payload.response.option),
+            false,
+          );
           if (!success) {
             return {
               status: "error",
@@ -178,7 +194,9 @@ export function createActionHandlers(deps: ActionHandlerDeps) {
      * Open a new session in tmux.
      */
     async openSession(payload: OpenSessionPayload): Promise<ActionResult> {
-      console.log(`[actions] openSession: provider=${payload.provider} name=${payload.name ?? "unnamed"}`);
+      console.log(
+        `[actions] openSession: provider=${payload.provider} name=${payload.name ?? "unnamed"}`,
+      );
       return launchSession(payload);
     },
   };

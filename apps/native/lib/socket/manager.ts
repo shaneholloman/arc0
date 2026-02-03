@@ -166,7 +166,11 @@ export class SocketManager {
   /**
    * Reconnect to a workstation (disconnect then connect).
    */
-  async reconnect(workstationId: string, url: string, credentials?: WorkstationCredentials): Promise<void> {
+  async reconnect(
+    workstationId: string,
+    url: string,
+    credentials?: WorkstationCredentials
+  ): Promise<void> {
     this.disconnect(workstationId);
     // Small delay to ensure clean disconnect
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -319,8 +323,13 @@ export class SocketManager {
         const cursor = this.handlers.getSessionCursors(workstationId);
         const initPayload: InitPayload = { deviceId, cursor };
         socket.emit('init', initPayload);
-        console.log(`[SocketManager] ${workstationId} sent init: device=${deviceId} cursors=${cursor.length}`);
-        logEvent('init', 'out', `Sent init to ${workstationId}`, { deviceId, cursorCount: cursor.length });
+        console.log(
+          `[SocketManager] ${workstationId} sent init: device=${deviceId} cursors=${cursor.length}`
+        );
+        logEvent('init', 'out', `Sent init to ${workstationId}`, {
+          deviceId,
+          cursorCount: cursor.length,
+        });
       }
     });
 
@@ -379,7 +388,9 @@ export class SocketManager {
           payload = payloadOrEnvelope as unknown as SessionsSyncPayload;
         }
 
-        console.log(`[SocketManager] ${workstationId} received ${payload.sessions.length} sessions`);
+        console.log(
+          `[SocketManager] ${workstationId} received ${payload.sessions.length} sessions`
+        );
         logEvent('sessions', 'in', `${workstationId}: ${payload.sessions.length} sessions`, {
           workstationId: payload.workstationId,
           sessionCount: payload.sessions.length,
@@ -405,7 +416,9 @@ export class SocketManager {
           payload = payloadOrEnvelope as unknown as RawMessagesBatchPayload;
         }
 
-        console.log(`[SocketManager] ${workstationId} received ${payload.messages.length} messages`);
+        console.log(
+          `[SocketManager] ${workstationId} received ${payload.messages.length} messages`
+        );
         logEvent('messages', 'in', `${workstationId}: ${payload.messages.length} messages`, {
           batchId: payload.batchId,
           workstationId: payload.workstationId,
@@ -420,7 +433,9 @@ export class SocketManager {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`[SocketManager] ${workstationId} error handling messages:`, errorMessage);
-        logEvent('error', 'system', `${workstationId} error processing messages`, { error: errorMessage });
+        logEvent('error', 'system', `${workstationId} error processing messages`, {
+          error: errorMessage,
+        });
         callback();
       }
     });

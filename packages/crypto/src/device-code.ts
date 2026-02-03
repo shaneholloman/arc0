@@ -31,7 +31,9 @@ export function generatePairingCode(): string {
 
   let code = "";
   for (let i = 0; i < CODE_LENGTH; i++) {
-    const index = Number((bits >> BigInt((CODE_LENGTH - 1 - i) * BITS_PER_CHAR)) & 0x1fn);
+    const index = Number(
+      (bits >> BigInt((CODE_LENGTH - 1 - i) * BITS_PER_CHAR)) & 0x1fn,
+    );
     code += CODE_ALPHABET[index];
   }
 

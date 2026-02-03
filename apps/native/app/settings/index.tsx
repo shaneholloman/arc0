@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Pressable,
-  Platform,
-  Linking,
-  Alert,
-  ScrollView,
-} from 'react-native';
+import { View, Pressable, Platform, Linking, Alert, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
@@ -125,8 +118,7 @@ export default function SettingsScreen() {
             const opfs = await navigator.storage.getDirectory();
             await opfs.removeEntry(WEB_STORE_FILENAME);
           } catch (err) {
-            const isNotFound =
-              err instanceof DOMException && err.name === 'NotFoundError';
+            const isNotFound = err instanceof DOMException && err.name === 'NotFoundError';
             if (!isNotFound) {
               throw err;
             }
@@ -243,7 +235,9 @@ export default function SettingsScreen() {
         <Text className="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
           Appearance
         </Text>
-        <View testID="appearance-section" className="bg-card border-border overflow-hidden rounded-lg border">
+        <View
+          testID="appearance-section"
+          className="bg-card border-border overflow-hidden rounded-lg border">
           {themeOptions.map((option, index) => (
             <Pressable
               key={option.value}
@@ -269,7 +263,9 @@ export default function SettingsScreen() {
         <Text className="text-muted-foreground mt-6 mb-3 text-xs font-semibold tracking-wide uppercase">
           Help
         </Text>
-        <View testID="help-section" className="bg-card border-border overflow-hidden rounded-lg border">
+        <View
+          testID="help-section"
+          className="bg-card border-border overflow-hidden rounded-lg border">
           <Pressable
             testID="help-docs"
             onPress={() => Linking.openURL('https://arc0.ai/docs')}

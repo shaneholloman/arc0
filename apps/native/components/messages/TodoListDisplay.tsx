@@ -21,9 +21,9 @@ function TodoItemRow({ todo }: { todo: TodoItem }) {
 
   return (
     <View className="flex-row items-start py-1.5">
-      <View className="mr-2 mt-0.5">
+      <View className="mt-0.5 mr-2">
         {isInProgress ? (
-          <Icon as={ClockIcon} className="size-4 text-muted-foreground" />
+          <Icon as={ClockIcon} className="text-muted-foreground size-4" />
         ) : (
           <Checkbox checked={isCompleted} onCheckedChange={() => {}} disabled />
         )}
@@ -32,8 +32,7 @@ function TodoItemRow({ todo }: { todo: TodoItem }) {
         className={cn(
           'flex-1 text-sm leading-relaxed',
           isCompleted ? 'text-muted-foreground' : 'text-foreground'
-        )}
-      >
+        )}>
         {todo.content}
       </Text>
     </View>

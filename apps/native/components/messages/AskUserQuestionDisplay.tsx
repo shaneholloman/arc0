@@ -174,11 +174,16 @@ function SingleSelectQuestion({
               <RadioGroupItem value={opt.label} />
               <View className="ml-2 flex-1">
                 <Text
-                  className={cn('text-xs font-medium', isSelected ? 'text-primary' : 'text-foreground')}>
+                  className={cn(
+                    'text-xs font-medium',
+                    isSelected ? 'text-primary' : 'text-foreground'
+                  )}>
                   {opt.label}
                 </Text>
                 {opt.description && (
-                  <Text className="text-muted-foreground mt-0.5 text-[10px]">{opt.description}</Text>
+                  <Text className="text-muted-foreground mt-0.5 text-[10px]">
+                    {opt.description}
+                  </Text>
                 )}
               </View>
             </View>
@@ -255,7 +260,9 @@ function MultiSelectQuestion({
 }) {
   const context = usePendingQuestionSafe();
   const hasCustomAnswer = isCustomAnswer(answeredValue, question.options, true);
-  const customText = hasCustomAnswer ? getCustomAnswerText(answeredValue, question.options, true) : '';
+  const customText = hasCustomAnswer
+    ? getCustomAnswerText(answeredValue, question.options, true)
+    : '';
   const isSubmitting = context?.isSubmitting ?? false;
 
   // Disable interactions while submitting
@@ -295,7 +302,10 @@ function MultiSelectQuestion({
             <Checkbox checked={isSelected} onCheckedChange={() => {}} disabled={!isInteractive} />
             <View className="ml-2 flex-1">
               <Text
-                className={cn('text-xs font-medium', isSelected ? 'text-primary' : 'text-foreground')}>
+                className={cn(
+                  'text-xs font-medium',
+                  isSelected ? 'text-primary' : 'text-foreground'
+                )}>
                 {opt.label}
               </Text>
               {opt.description && (
@@ -321,7 +331,9 @@ function MultiSelectQuestion({
         <View className="border-primary bg-primary/10 flex-row items-center rounded-lg border px-3 py-2">
           <Checkbox checked onCheckedChange={() => {}} disabled />
           <View className="ml-2 flex-1">
-            <Text className="text-primary text-xs font-medium">Other: &quot;{customText}&quot;</Text>
+            <Text className="text-primary text-xs font-medium">
+              Other: &quot;{customText}&quot;
+            </Text>
           </View>
         </View>
       )}

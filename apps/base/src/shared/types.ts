@@ -41,7 +41,9 @@ export interface ClaudeSessionEndPayload {
   reason: string;
 }
 
-export type ClaudeHookPayload = ClaudeSessionStartPayload | ClaudeSessionEndPayload;
+export type ClaudeHookPayload =
+  | ClaudeSessionStartPayload
+  | ClaudeSessionEndPayload;
 
 // ============================================
 // Session File (written by hooks to ~/.arc0/sessions/)

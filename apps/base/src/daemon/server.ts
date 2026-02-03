@@ -1,4 +1,8 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { Server, type Socket } from "socket.io";
 import type {
   RawMessagesBatchPayload,
@@ -89,7 +93,9 @@ export class ControlServer {
     if (options.preferredPort && options.preferredPort > 0) {
       this.httpServer.once("error", (err: NodeJS.ErrnoException) => {
         if (err.code === "EADDRINUSE") {
-          console.log(`[control] Preferred port ${options.preferredPort} in use, falling back to OS-assigned`);
+          console.log(
+            `[control] Preferred port ${options.preferredPort} in use, falling back to OS-assigned`,
+          );
           startListening(0);
         } else {
           throw err;
@@ -200,12 +206,14 @@ export class ControlServer {
         const { deviceId, deviceName } = this.pairingCompletedDevice;
         this.pairingCompletedDevice = undefined; // Clear after reading
         res.writeHead(200);
-        res.end(JSON.stringify({
-          active: false,
-          completed: true,
-          deviceId,
-          deviceName,
-        }));
+        res.end(
+          JSON.stringify({
+            active: false,
+            completed: true,
+            deviceId,
+            deviceName,
+          }),
+        );
         return;
       }
 
@@ -253,7 +261,10 @@ export class SocketServer {
   private clients = new Map<string, ClientInfo>();
   private authenticatedSockets = new Set<string>();
   private onConnectCallback?: () => void;
-  private onInitCallback?: (socketId: string, payload: InitPayload) => void | Promise<void>;
+  private onInitCallback?: (
+    socketId: string,
+    payload: InitPayload,
+  ) => void | Promise<void>;
   private currentSessions: SessionData[] = [];
   private workstationId: string;
   private secret?: string;
@@ -271,8 +282,9 @@ export class SocketServer {
     this.actionHandlers = options.actionHandlers;
 
     // Initialize message queue for flow control
-    this.messageQueue = new MessageQueueManager((socketId, payload, encrypted, onAck) =>
-      this.emitMessage(socketId, payload, encrypted, onAck)
+    this.messageQueue = new MessageQueueManager(
+      (socketId, payload, encrypted, onAck) =>
+        this.emitMessage(socketId, payload, encrypted, onAck),
     );
 
     // Create HTTP server for Socket.IO
@@ -303,7 +315,9 @@ export class SocketServer {
     if (options.preferredPort && options.preferredPort > 0) {
       this.httpServer.once("error", (err: NodeJS.ErrnoException) => {
         if (err.code === "EADDRINUSE") {
-          console.log(`[socket] Preferred port ${options.preferredPort} in use, falling back to OS-assigned`);
+          console.log(
+            `[socket] Preferred port ${options.preferredPort} in use, falling back to OS-assigned`,
+          );
           startListening(0);
         } else {
           throw err;
@@ -331,7 +345,9 @@ export class SocketServer {
 
         if (typeof deviceId === "string" && typeof authToken === "string") {
           if (validateClient(deviceId, authToken)) {
-            (socket as Socket & { authenticated: boolean; deviceId: string }).authenticated = true;
+            (
+              socket as Socket & { authenticated: boolean; deviceId: string }
+            ).authenticated = true;
             (socket as Socket & { deviceId: string }).deviceId = deviceId;
             touchClient(deviceId);
             console.log(`[socket] Authenticated client: ${deviceId}`);
@@ -349,7 +365,10 @@ export class SocketServer {
       // Legacy: shared secret auth
       if (this.secret) {
         const clientSecret = auth?.secret;
-        if (typeof clientSecret === "string" && safeCompare(clientSecret, this.secret)) {
+        if (
+          typeof clientSecret === "string" &&
+          safeCompare(clientSecret, this.secret)
+        ) {
           (socket as Socket & { authenticated: boolean }).authenticated = true;
           next();
           return;
@@ -357,15 +376,19 @@ export class SocketServer {
       }
 
       // No auth configured or pairing mode - allow connection
-      (socket as Socket & { authenticated: boolean }).authenticated = !this.secret && !this.useClientAuth;
+      (socket as Socket & { authenticated: boolean }).authenticated =
+        !this.secret && !this.useClientAuth;
       next();
     });
 
     this.io.on("connection", (socket: Socket) => {
-      const isAuthenticated = (socket as Socket & { authenticated?: boolean }).authenticated ?? false;
+      const isAuthenticated =
+        (socket as Socket & { authenticated?: boolean }).authenticated ?? false;
       const deviceId = (socket as Socket & { deviceId?: string }).deviceId;
 
-      console.log(`[socket] Client connected: ${socket.id} (authenticated: ${isAuthenticated})`);
+      console.log(
+        `[socket] Client connected: ${socket.id} (authenticated: ${isAuthenticated})`,
+      );
 
       // Track authenticated sockets
       if (isAuthenticated) {
@@ -417,7 +440,9 @@ export class SocketServer {
   private setupPairingHandlers(socket: Socket): void {
     // Handle pair:init
     socket.on("pair:init", (payload: PairInitPayload) => {
-      console.log(`[socket] pair:init from ${socket.id} device=${payload.deviceId}`);
+      console.log(
+        `[socket] pair:init from ${socket.id} device=${payload.deviceId}`,
+      );
 
       const result = pairingManager.handlePairInit(payload);
 
@@ -451,7 +476,9 @@ export class SocketServer {
   private setupAuthenticatedHandlers(socket: Socket): void {
     // Handle init (sent immediately after connect)
     socket.on("init", (payload: InitPayload) => {
-      console.log(`[socket] Init: ${socket.id} device=${payload.deviceId} cursors=${payload.cursor.length}`);
+      console.log(
+        `[socket] Init: ${socket.id} device=${payload.deviceId} cursors=${payload.cursor.length}`,
+      );
       const client = this.clients.get(socket.id);
       if (client) {
         client.deviceId = payload.deviceId;
@@ -463,7 +490,11 @@ export class SocketServer {
     // Handle client requests (lightweight connection test)
     socket.on("ping", (callback) => {
       if (typeof callback === "function") {
-        callback({ pong: true, workstationId: this.workstationId, timestamp: Date.now() });
+        callback({
+          pong: true,
+          workstationId: this.workstationId,
+          timestamp: Date.now(),
+        });
       }
     });
 
@@ -476,7 +507,9 @@ export class SocketServer {
    */
   private setupActionHandlers(socket: Socket): void {
     if (!this.actionHandlers) {
-      console.log("[socket] No action handlers configured, skipping action setup");
+      console.log(
+        "[socket] No action handlers configured, skipping action setup",
+      );
       return;
     }
 
@@ -496,74 +529,134 @@ export class SocketServer {
     };
 
     // sendPrompt
-    socket.on("sendPrompt", async (payload: SendPromptPayload | EncryptedEnvelope, ack: (result: ActionResult) => void) => {
-      console.log(`[socket] sendPrompt from ${socket.id}`);
-      try {
-        const decrypted = decryptPayload<SendPromptPayload>(payload);
-        if (!decrypted) {
-          ack({ status: "error", code: "DECRYPT_ERROR", message: "Failed to decrypt payload" });
-          return;
+    socket.on(
+      "sendPrompt",
+      async (
+        payload: SendPromptPayload | EncryptedEnvelope,
+        ack: (result: ActionResult) => void,
+      ) => {
+        console.log(`[socket] sendPrompt from ${socket.id}`);
+        try {
+          const decrypted = decryptPayload<SendPromptPayload>(payload);
+          if (!decrypted) {
+            ack({
+              status: "error",
+              code: "DECRYPT_ERROR",
+              message: "Failed to decrypt payload",
+            });
+            return;
+          }
+          const result = await handlers.sendPrompt(decrypted);
+          ack(result);
+        } catch (error) {
+          console.error("[socket] sendPrompt error:", error);
+          ack({
+            status: "error",
+            code: "INTERNAL_ERROR",
+            message: String(error),
+          });
         }
-        const result = await handlers.sendPrompt(decrypted);
-        ack(result);
-      } catch (error) {
-        console.error("[socket] sendPrompt error:", error);
-        ack({ status: "error", code: "INTERNAL_ERROR", message: String(error) });
-      }
-    });
+      },
+    );
 
     // approveToolUse (unified handler for tool, plan, and answers)
-    socket.on("approveToolUse", async (payload: ApproveToolUsePayload | EncryptedEnvelope, ack: (result: ActionResult) => void) => {
-      try {
-        const decrypted = decryptPayload<ApproveToolUsePayload>(payload);
-        if (!decrypted) {
-          ack({ status: "error", code: "DECRYPT_ERROR", message: "Failed to decrypt payload" });
-          return;
+    socket.on(
+      "approveToolUse",
+      async (
+        payload: ApproveToolUsePayload | EncryptedEnvelope,
+        ack: (result: ActionResult) => void,
+      ) => {
+        try {
+          const decrypted = decryptPayload<ApproveToolUsePayload>(payload);
+          if (!decrypted) {
+            ack({
+              status: "error",
+              code: "DECRYPT_ERROR",
+              message: "Failed to decrypt payload",
+            });
+            return;
+          }
+          console.log(
+            `[socket] approveToolUse from ${socket.id} type=${decrypted.response.type}`,
+          );
+          const result = await handlers.approveToolUse(decrypted);
+          ack(result);
+        } catch (error) {
+          console.error("[socket] approveToolUse error:", error);
+          ack({
+            status: "error",
+            code: "INTERNAL_ERROR",
+            message: String(error),
+          });
         }
-        console.log(`[socket] approveToolUse from ${socket.id} type=${decrypted.response.type}`);
-        const result = await handlers.approveToolUse(decrypted);
-        ack(result);
-      } catch (error) {
-        console.error("[socket] approveToolUse error:", error);
-        ack({ status: "error", code: "INTERNAL_ERROR", message: String(error) });
-      }
-    });
+      },
+    );
 
     // stopAgent
-    socket.on("stopAgent", async (payload: StopAgentPayload | EncryptedEnvelope, ack: (result: ActionResult) => void) => {
-      console.log(`[socket] stopAgent from ${socket.id}`);
-      try {
-        const decrypted = decryptPayload<StopAgentPayload>(payload);
-        if (!decrypted) {
-          ack({ status: "error", code: "DECRYPT_ERROR", message: "Failed to decrypt payload" });
-          return;
+    socket.on(
+      "stopAgent",
+      async (
+        payload: StopAgentPayload | EncryptedEnvelope,
+        ack: (result: ActionResult) => void,
+      ) => {
+        console.log(`[socket] stopAgent from ${socket.id}`);
+        try {
+          const decrypted = decryptPayload<StopAgentPayload>(payload);
+          if (!decrypted) {
+            ack({
+              status: "error",
+              code: "DECRYPT_ERROR",
+              message: "Failed to decrypt payload",
+            });
+            return;
+          }
+          const result = await handlers.stopAgent(decrypted);
+          ack(result);
+        } catch (error) {
+          console.error("[socket] stopAgent error:", error);
+          ack({
+            status: "error",
+            code: "INTERNAL_ERROR",
+            message: String(error),
+          });
         }
-        const result = await handlers.stopAgent(decrypted);
-        ack(result);
-      } catch (error) {
-        console.error("[socket] stopAgent error:", error);
-        ack({ status: "error", code: "INTERNAL_ERROR", message: String(error) });
-      }
-    });
+      },
+    );
 
     // openSession
-    socket.on("openSession", async (payload: OpenSessionPayload | EncryptedEnvelope, ack: (result: ActionResult) => void) => {
-      console.log(`[socket] openSession from ${socket.id}`);
-      try {
-        const decrypted = decryptPayload<OpenSessionPayload>(payload);
-        if (!decrypted) {
-          ack({ status: "error", code: "DECRYPT_ERROR", message: "Failed to decrypt payload" });
-          return;
+    socket.on(
+      "openSession",
+      async (
+        payload: OpenSessionPayload | EncryptedEnvelope,
+        ack: (result: ActionResult) => void,
+      ) => {
+        console.log(`[socket] openSession from ${socket.id}`);
+        try {
+          const decrypted = decryptPayload<OpenSessionPayload>(payload);
+          if (!decrypted) {
+            ack({
+              status: "error",
+              code: "DECRYPT_ERROR",
+              message: "Failed to decrypt payload",
+            });
+            return;
+          }
+          const result = await handlers.openSession(decrypted);
+          ack(result);
+        } catch (error) {
+          console.error("[socket] openSession error:", error);
+          ack({
+            status: "error",
+            code: "INTERNAL_ERROR",
+            message: String(error),
+          });
         }
-        const result = await handlers.openSession(decrypted);
-        ack(result);
-      } catch (error) {
-        console.error("[socket] openSession error:", error);
-        ack({ status: "error", code: "INTERNAL_ERROR", message: String(error) });
-      }
-    });
+      },
+    );
 
-    console.log(`[socket] Action handlers registered for ${socket.id} (encryption: ${useEncryption})`);
+    console.log(
+      `[socket] Action handlers registered for ${socket.id} (encryption: ${useEncryption})`,
+    );
   }
 
   /**
@@ -573,7 +666,7 @@ export class SocketServer {
     socketId: string,
     payload: RawMessagesBatchPayload,
     encrypted: boolean,
-    onAck: () => void
+    onAck: () => void,
   ): boolean {
     const socket = this.io.sockets.sockets.get(socketId);
     if (!socket) return false;
@@ -594,7 +687,11 @@ export class SocketServer {
       }
       return false;
     } else {
-      socket.emit("messages", payload as unknown as EncryptedEnvelope, updateLastAck);
+      socket.emit(
+        "messages",
+        payload as unknown as EncryptedEnvelope,
+        updateLastAck,
+      );
       return true;
     }
   }
@@ -653,7 +750,10 @@ export class SocketServer {
   /**
    * Send sessions to a specific client (encrypted if applicable).
    */
-  sendSessionsSyncToClient(socketId: string, payload: SessionsSyncPayload): void {
+  sendSessionsSyncToClient(
+    socketId: string,
+    payload: SessionsSyncPayload,
+  ): void {
     this.currentSessions = payload.sessions;
 
     const socket = this.io.sockets.sockets.get(socketId);
@@ -668,13 +768,18 @@ export class SocketServer {
       socket.emit("sessions", payload as unknown as EncryptedEnvelope);
     }
 
-    console.log(`[socket] Sent sessions to ${socketId} (${payload.sessions.length} sessions)`);
+    console.log(
+      `[socket] Sent sessions to ${socketId} (${payload.sessions.length} sessions)`,
+    );
   }
 
   /**
    * Send projects to a specific client (encrypted if applicable).
    */
-  sendProjectsSyncToClient(socketId: string, payload: ProjectsSyncPayload): void {
+  sendProjectsSyncToClient(
+    socketId: string,
+    payload: ProjectsSyncPayload,
+  ): void {
     const socket = this.io.sockets.sockets.get(socketId);
     if (!socket || !this.authenticatedSockets.has(socketId)) return;
 
@@ -687,7 +792,9 @@ export class SocketServer {
       socket.emit("projects", payload as unknown as EncryptedEnvelope);
     }
 
-    console.log(`[socket] Sent projects to ${socketId} (${payload.projects.length} projects)`);
+    console.log(
+      `[socket] Sent projects to ${socketId} (${payload.projects.length} projects)`,
+    );
   }
 
   /**
@@ -705,26 +812,36 @@ export class SocketServer {
       this.messageQueue.enqueue(socketId, { payload, encrypted });
     }
 
-    console.log(`[socket] Queued messages (${payload.messages.length} messages, batch=${payload.batchId})`);
+    console.log(
+      `[socket] Queued messages (${payload.messages.length} messages, batch=${payload.batchId})`,
+    );
   }
 
   /**
    * Send messages to a specific client (queued with flow control).
    */
-  sendMessagesBatchToClient(socketId: string, payload: RawMessagesBatchPayload): void {
+  sendMessagesBatchToClient(
+    socketId: string,
+    payload: RawMessagesBatchPayload,
+  ): void {
     const socket = this.io.sockets.sockets.get(socketId);
     if (!socket) return;
 
     const encrypted = this.useClientAuth && hasEncryptionContext(socketId);
     this.messageQueue.enqueue(socketId, { payload, encrypted });
 
-    console.log(`[socket] Queued messages to ${socketId} (${payload.messages.length} messages)`);
+    console.log(
+      `[socket] Queued messages to ${socketId} (${payload.messages.length} messages)`,
+    );
   }
 
   /**
    * Send messages to a specific client and wait for ack (for sequential init flow).
    */
-  sendMessagesBatchToClientAsync(socketId: string, payload: RawMessagesBatchPayload): Promise<void> {
+  sendMessagesBatchToClientAsync(
+    socketId: string,
+    payload: RawMessagesBatchPayload,
+  ): Promise<void> {
     return new Promise((resolve) => {
       const socket = this.io.sockets.sockets.get(socketId);
       if (!socket) {

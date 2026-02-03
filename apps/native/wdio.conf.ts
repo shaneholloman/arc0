@@ -23,10 +23,7 @@ export const config = {
       platformName: 'Android',
       'appium:automationName': 'UiAutomator2',
       'appium:deviceName': 'Android Emulator',
-      'appium:app': path.resolve(
-        __dirname,
-        'android/app/build/outputs/apk/debug/app-debug.apk'
-      ),
+      'appium:app': path.resolve(__dirname, 'android/app/build/outputs/apk/debug/app-debug.apk'),
       'appium:appPackage': appPackage,
       'appium:appActivity': '.MainActivity',
       'appium:noReset': false,

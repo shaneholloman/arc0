@@ -92,11 +92,7 @@ export async function loadSessionArtifacts(
  * @param indexes - TinyBase indexes instance
  * @param sessionId - Session ID to unload artifacts for
  */
-export function unloadSessionArtifacts(
-  store: Store,
-  indexes: Indexes,
-  sessionId: string
-): void {
+export function unloadSessionArtifacts(store: Store, indexes: Indexes, sessionId: string): void {
   const artifactIds = indexes.getSliceRowIds('artifactsBySession', sessionId);
 
   if (artifactIds.length === 0) {

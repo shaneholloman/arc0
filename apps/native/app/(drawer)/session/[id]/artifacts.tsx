@@ -52,7 +52,7 @@ export default function ArtifactsScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View className="bg-background flex-1 items-center justify-center">
         <Text className="text-muted-foreground">Loading artifacts...</Text>
       </View>
     );
@@ -60,12 +60,12 @@ export default function ArtifactsScreen() {
 
   if (!artifacts || (counts.todo === 0 && counts.plan === 0)) {
     return (
-      <View className="flex-1 items-center justify-center gap-4 bg-background p-6">
-        <View className="rounded-full bg-muted p-4">
-          <Icon as={FileCodeIcon} className="size-8 text-muted-foreground" />
+      <View className="bg-background flex-1 items-center justify-center gap-4 p-6">
+        <View className="bg-muted rounded-full p-4">
+          <Icon as={FileCodeIcon} className="text-muted-foreground size-8" />
         </View>
         <Text className="text-center text-lg font-medium">No artifacts yet</Text>
-        <Text className="text-center text-muted-foreground">
+        <Text className="text-muted-foreground text-center">
           Plans and tasks will appear here as Claude works
         </Text>
       </View>
@@ -73,7 +73,7 @@ export default function ArtifactsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background">
+    <View className="bg-background flex-1">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{
@@ -81,13 +81,13 @@ export default function ArtifactsScreen() {
           paddingBottom: 80,
         }}>
         {activeType === 'todo' && artifacts.todos.length > 0 && (
-          <View className="rounded-sm border border-border p-4">
+          <View className="border-border rounded-sm border p-4">
             <View className="mb-3 flex-row items-center">
-              <Icon as={PickaxeIcon} className="size-5 text-muted-foreground" />
-              <Text className="ml-2 font-semibold text-foreground">Tasks</Text>
-              <Text className="ml-auto text-xs text-muted-foreground">
-                {artifacts.todos.filter((t) => t.status === 'completed').length}/{artifacts.todos.length}{' '}
-                completed
+              <Icon as={PickaxeIcon} className="text-muted-foreground size-5" />
+              <Text className="text-foreground ml-2 font-semibold">Tasks</Text>
+              <Text className="text-muted-foreground ml-auto text-xs">
+                {artifacts.todos.filter((t) => t.status === 'completed').length}/
+                {artifacts.todos.length} completed
               </Text>
             </View>
             <TodoListDisplay todos={artifacts.todos} />
@@ -95,16 +95,16 @@ export default function ArtifactsScreen() {
         )}
 
         {activeType === 'plan' && artifacts.plan && (
-          <View className="rounded-sm border border-border p-4">
+          <View className="border-border rounded-sm border p-4">
             <View className="mb-3 flex-row items-center">
-              <Icon as={MapIcon} className="size-5 text-muted-foreground" />
-              <Text className="ml-2 font-semibold text-foreground">Implementation Plan</Text>
+              <Icon as={MapIcon} className="text-muted-foreground size-5" />
+              <Text className="text-foreground ml-2 font-semibold">Implementation Plan</Text>
               {artifacts.plan.messageUuid && (
                 <Pressable
                   onPress={handleViewPlanInChat}
-                  className="ml-auto flex-row items-center gap-1 rounded-md bg-muted px-2 py-1 active:opacity-70">
-                  <Icon as={ExternalLinkIcon} className="size-3 text-muted-foreground" />
-                  <Text className="text-xs text-muted-foreground">View in Chat</Text>
+                  className="bg-muted ml-auto flex-row items-center gap-1 rounded-md px-2 py-1 active:opacity-70">
+                  <Icon as={ExternalLinkIcon} className="text-muted-foreground size-3" />
+                  <Text className="text-muted-foreground text-xs">View in Chat</Text>
                 </Pressable>
               )}
             </View>
@@ -119,7 +119,7 @@ export default function ArtifactsScreen() {
 
       {/* Chip selector at bottom */}
       {availableTypes.length > 1 && (
-        <View className="absolute bottom-0 left-0 right-0 border-t border-border bg-background">
+        <View className="border-border bg-background absolute right-0 bottom-0 left-0 border-t">
           <View className="flex-row justify-center px-4 py-3">
             {ARTIFACT_CHIPS.map((chip) => (
               <ArtifactChip

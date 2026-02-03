@@ -8,11 +8,14 @@ import {
   loadConfig,
   type Arc0Config,
 } from "../../shared/config.js";
+import { loadCredentials, updateTunnelAuth } from "../../shared/credentials.js";
 import {
-  loadCredentials,
-  updateTunnelAuth,
-} from "../../shared/credentials.js";
-import { ensureFrpc, getFrpcVersion, frpcExists, generateRandomSubdomain, generateFrpcConfig } from "../../shared/frpc.js";
+  ensureFrpc,
+  getFrpcVersion,
+  frpcExists,
+  generateRandomSubdomain,
+  generateFrpcConfig,
+} from "../../shared/frpc.js";
 import { performDeviceAuth, validateToken } from "../../shared/device-auth.js";
 
 const TUNNEL_HELP = `
@@ -44,7 +47,7 @@ async function statusSubcommand(): Promise<void> {
     p.log.info("Tunnel mode: " + pc.yellow("None (local/BYO)"));
     p.note(
       "You're managing your own tunnel or using local connections.\nRun 'arc0 auth login' to enable Arc0 tunnel.",
-      "Info"
+      "Info",
     );
     return;
   }
@@ -143,7 +146,9 @@ export async function tunnelCommand(subcommand?: string): Promise<void> {
  * Setup tunnel during init flow
  * Returns true if Arc0 tunnel was configured
  */
-export async function setupTunnelDuringInit(config: Arc0Config): Promise<boolean> {
+export async function setupTunnelDuringInit(
+  config: Arc0Config,
+): Promise<boolean> {
   const tunnelMode = await p.select({
     message: "How do you want to connect the mobile app?",
     options: [
@@ -210,7 +215,9 @@ export async function setupTunnelDuringInit(config: Arc0Config): Promise<boolean
     return true;
   } catch (error) {
     s.stop("Failed");
-    p.log.error(`Tunnel setup failed: ${error instanceof Error ? error.message : error}`);
+    p.log.error(
+      `Tunnel setup failed: ${error instanceof Error ? error.message : error}`,
+    );
     p.log.info("You can try again later with 'arc0 auth login'.");
     config.tunnel = { mode: "none" };
     return false;

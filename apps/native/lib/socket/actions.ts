@@ -106,7 +106,12 @@ function emitWithAck<T extends Record<string, unknown>>(
   payload: T
 ): Promise<ActionResult> {
   return new Promise((resolve, reject) => {
-    logEvent(eventName as EventType, 'out', `Sending ${eventName}`, payload as Record<string, unknown>);
+    logEvent(
+      eventName as EventType,
+      'out',
+      `Sending ${eventName}`,
+      payload as Record<string, unknown>
+    );
 
     // Encrypt payload if encryption is available
     const payloadToSend: T | EncryptedEnvelope = socketInfo.encryptionCtx
@@ -116,26 +121,33 @@ function emitWithAck<T extends Record<string, unknown>>(
     // Use Socket.IO's built-in timeout
     // We cast to any because Socket.IO's TypeScript types don't handle
     // dynamic event names well with ack callbacks
-    (socketInfo.socket.timeout(ACTION_TIMEOUT_MS) as unknown as {
-      emit: (event: string, payload: unknown, callback: (err: Error | null, result: ActionResult) => void) => void;
-    }).emit(
-      eventName,
-      payloadToSend,
-      (err: Error | null, result: ActionResult) => {
-        if (err) {
-          logEvent(eventName as EventType, 'system', `${eventName} failed: ${err.message}`);
-          if (err.message?.includes('timeout')) {
-            reject(new ActionTimeoutError(eventName));
-          } else {
-            reject(err);
-          }
-          return;
-        }
-
-        logEvent(eventName as EventType, 'in', `${eventName} result: ${result.status}`, result as Record<string, unknown>);
-        resolve(result);
+    (
+      socketInfo.socket.timeout(ACTION_TIMEOUT_MS) as unknown as {
+        emit: (
+          event: string,
+          payload: unknown,
+          callback: (err: Error | null, result: ActionResult) => void
+        ) => void;
       }
-    );
+    ).emit(eventName, payloadToSend, (err: Error | null, result: ActionResult) => {
+      if (err) {
+        logEvent(eventName as EventType, 'system', `${eventName} failed: ${err.message}`);
+        if (err.message?.includes('timeout')) {
+          reject(new ActionTimeoutError(eventName));
+        } else {
+          reject(err);
+        }
+        return;
+      }
+
+      logEvent(
+        eventName as EventType,
+        'in',
+        `${eventName} result: ${result.status}`,
+        result as Record<string, unknown>
+      );
+      resolve(result);
+    });
   });
 }
 

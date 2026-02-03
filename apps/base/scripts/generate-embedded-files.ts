@@ -30,7 +30,7 @@ function escapeForTemplateLiteral(content: string): string {
 function generateEmbeddedFile(
   sourceFile: string,
   outputFile: string,
-  exportName: string
+  exportName: string,
 ): void {
   const sourcePath = join(HOOKS_DIR, sourceFile);
   const outputPath = join(HOOKS_DIR, outputFile);
@@ -53,7 +53,7 @@ export const ${exportName} = \`${escaped}\`;
 generateEmbeddedFile(
   "claude-session.js",
   "claude-session.embedded.ts",
-  "CLAUDE_SESSION_SCRIPT"
+  "CLAUDE_SESSION_SCRIPT",
 );
 
 console.log("Done generating embedded files.");

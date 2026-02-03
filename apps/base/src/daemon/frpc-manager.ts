@@ -105,7 +105,10 @@ export class FrpcManager {
     // Regenerate frpc.toml to ensure it uses env var for port
     const subdomain = this.config.tunnel?.subdomain;
     if (subdomain) {
-      const configContent = generateFrpcConfig(subdomain, this.config.workstationId);
+      const configContent = generateFrpcConfig(
+        subdomain,
+        this.config.workstationId,
+      );
       writeFileSync(FRPC_CONFIG, configContent, { mode: 0o600 });
       console.log(`[frpc] Regenerated config for subdomain: ${subdomain}`);
     }
@@ -283,7 +286,9 @@ export class FrpcManager {
     if (this.stopping) return;
 
     if (this.restartCount >= this.maxRestarts) {
-      console.log(`[frpc] Max restarts (${this.maxRestarts}) reached, giving up`);
+      console.log(
+        `[frpc] Max restarts (${this.maxRestarts}) reached, giving up`,
+      );
       this.status = "error";
       this.error = "Max restarts reached";
       this.notifyStatusChange();
@@ -292,7 +297,7 @@ export class FrpcManager {
 
     const delay = this.restartDelay * Math.pow(2, this.restartCount);
     console.log(
-      `[frpc] Scheduling restart #${this.restartCount + 1} in ${delay / 1000}s`
+      `[frpc] Scheduling restart #${this.restartCount + 1} in ${delay / 1000}s`,
     );
 
     this.restartTimeout = setTimeout(() => {
@@ -326,7 +331,7 @@ export class FrpcManager {
 export async function createFrpcManager(
   config: Arc0Config,
   socketPort: number,
-  onStatusChange?: (status: FrpcManagerStatus) => void
+  onStatusChange?: (status: FrpcManagerStatus) => void,
 ): Promise<FrpcManager | null> {
   // Skip if tunnel not configured
   if (!config.tunnel || config.tunnel.mode !== "arc0") {

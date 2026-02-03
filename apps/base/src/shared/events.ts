@@ -25,7 +25,10 @@ export type EventMap = {
 class TypedEventEmitter<T extends Record<string, unknown[]>> {
   private emitter = new EventEmitter();
 
-  on<K extends keyof T>(event: K, listener: (...args: T[K]) => void): () => void {
+  on<K extends keyof T>(
+    event: K,
+    listener: (...args: T[K]) => void,
+  ): () => void {
     this.emitter.on(event as string, listener as (...args: unknown[]) => void);
     return () => this.off(event, listener);
   }

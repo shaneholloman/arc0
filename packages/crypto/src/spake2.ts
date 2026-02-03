@@ -17,7 +17,12 @@ import { ed25519 } from "@noble/curves/ed25519";
 import { sha256 } from "@noble/hashes/sha256";
 import { hmac } from "@noble/hashes/hmac";
 import { randomBytes } from "@noble/ciphers/webcrypto";
-import { bytesToHex, hexToBytes, utf8ToBytes, concatBytes } from "@noble/hashes/utils";
+import {
+  bytesToHex,
+  hexToBytes,
+  utf8ToBytes,
+  concatBytes,
+} from "@noble/hashes/utils";
 
 // Ed25519 parameters
 const CURVE_ORDER = ed25519.CURVE.n;
@@ -120,7 +125,8 @@ export function spake2Init(role: Spake2Role, password: string): Spake2State {
   const privateScalar = bytesToBigInt(privateBytes) % CURVE_ORDER;
 
   // Compute g^scalar (our public key before masking)
-  const publicPoint = ed25519.ExtendedPoint.BASE.multiply(privateScalar).toRawBytes();
+  const publicPoint =
+    ed25519.ExtendedPoint.BASE.multiply(privateScalar).toRawBytes();
 
   // Hash password to scalar
   const pwScalar = hashPassword(password);
@@ -150,7 +156,7 @@ export function spake2Init(role: Spake2Role, password: string): Spake2State {
  */
 export function spake2Finish(
   state: Spake2State,
-  peerMessage: Uint8Array
+  peerMessage: Uint8Array,
 ): Spake2KeyMaterial {
   const { role, password, privateScalar, publicMessage } = state;
 
@@ -175,7 +181,7 @@ export function spake2Finish(
     utf8ToBytes("arc0-spake2-v1"),
     clientMessage,
     serverMessage,
-    sharedPoint
+    sharedPoint,
   );
 
   // Hash transcript to get shared secret
@@ -196,7 +202,7 @@ export function spake2Finish(
  */
 export function spake2ComputeConfirmation(
   keyMaterial: Spake2KeyMaterial,
-  role: Spake2Role
+  role: Spake2Role,
 ): Uint8Array {
   const prefix = role === "client" ? "client-confirm" : "server-confirm";
   return hmac(sha256, keyMaterial.sharedSecret, utf8ToBytes(prefix));
@@ -213,7 +219,7 @@ export function spake2ComputeConfirmation(
 export function spake2VerifyConfirmation(
   keyMaterial: Spake2KeyMaterial,
   peerRole: Spake2Role,
-  peerMac: Uint8Array
+  peerMac: Uint8Array,
 ): boolean {
   const expectedMac = spake2ComputeConfirmation(keyMaterial, peerRole);
 

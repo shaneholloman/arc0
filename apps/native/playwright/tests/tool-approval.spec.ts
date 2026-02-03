@@ -139,7 +139,9 @@ test.describe('Plan Approval - With Message Injection', () => {
     await basemock.navigateToSession(page);
 
     // Inject plan approval request
-    const result = await basemock.injectPlanApproval('# Implementation Plan\n\n1. Create component\n2. Add tests');
+    const result = await basemock.injectPlanApproval(
+      '# Implementation Plan\n\n1. Create component\n2. Add tests'
+    );
     expect(result.success).toBe(true);
 
     // Plan approval UI should appear with "Would you like to proceed?" and options
@@ -181,10 +183,11 @@ test.describe('AskUserQuestion - With Message Injection', () => {
     await basemock.navigateToSession(page);
 
     // Inject a question
-    const result = await basemock.injectAskQuestion(
-      'Which database should we use?',
-      ['PostgreSQL', 'MySQL', 'SQLite']
-    );
+    const result = await basemock.injectAskQuestion('Which database should we use?', [
+      'PostgreSQL',
+      'MySQL',
+      'SQLite',
+    ]);
     expect(result.success).toBe(true);
 
     // Question text should be visible
@@ -200,10 +203,7 @@ test.describe('AskUserQuestion - With Message Injection', () => {
     await basemock.addWorkstationViaUI(page, 'Test Workstation');
     await basemock.navigateToSession(page);
 
-    await basemock.injectAskQuestion(
-      'Preferred language?',
-      ['TypeScript', 'JavaScript', 'Python']
-    );
+    await basemock.injectAskQuestion('Preferred language?', ['TypeScript', 'JavaScript', 'Python']);
 
     // Wait for option to appear before clicking
     await expect(page.locator('text=TypeScript')).toBeVisible({ timeout: 10000 });
@@ -220,10 +220,7 @@ test.describe('AskUserQuestion - With Message Injection', () => {
     await basemock.addWorkstationViaUI(page, 'Test Workstation');
     await basemock.navigateToSession(page);
 
-    await basemock.injectAskQuestion(
-      'Pick a framework',
-      ['React', 'Vue', 'Angular']
-    );
+    await basemock.injectAskQuestion('Pick a framework', ['React', 'Vue', 'Angular']);
 
     // "Other" option should be available for custom input
     await expect(page.locator('text=Other')).toBeVisible({ timeout: 10000 });

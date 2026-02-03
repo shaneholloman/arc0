@@ -69,7 +69,7 @@ export async function requestDeviceCode(): Promise<DeviceCodeResponse> {
 export async function pollForToken(
   deviceCode: string,
   interval: number,
-  expiresIn: number
+  expiresIn: number,
 ): Promise<TokenResponse | null> {
   const startTime = Date.now();
   const expiresAt = startTime + expiresIn * 1000;
@@ -144,7 +144,8 @@ export async function validateToken(token: string): Promise<UserInfo | null> {
  */
 export function displayDeviceCode(codeResponse: DeviceCodeResponse): void {
   const code = codeResponse.user_code.toUpperCase();
-  const formattedCode = code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+  const formattedCode =
+    code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
   const deviceUrl = codeResponse.verification_uri;
 
   console.log("");
@@ -168,7 +169,10 @@ export function displayDeviceCode(codeResponse: DeviceCodeResponse): void {
  * Returns token and user info on success.
  */
 export async function performDeviceAuth(
-  onStatus?: (status: "requesting" | "waiting" | "success" | "failed", message?: string) => void
+  onStatus?: (
+    status: "requesting" | "waiting" | "success" | "failed",
+    message?: string,
+  ) => void,
 ): Promise<{ token: string; user: UserInfo }> {
   const log = onStatus || (() => {});
 
@@ -184,7 +188,7 @@ export async function performDeviceAuth(
   const tokenResponse = await pollForToken(
     codeResponse.device_code,
     codeResponse.interval,
-    codeResponse.expires_in
+    codeResponse.expires_in,
   );
 
   if (!tokenResponse) {

@@ -116,18 +116,13 @@ function TableSection({ tableName }: TableSectionProps) {
       </Pressable>
 
       {expanded && (
-        <View className="ml-6 mt-1">
+        <View className="mt-1 ml-6">
           {rowCount === 0 ? (
             <Text className="text-muted-foreground text-xs italic">No rows</Text>
           ) : (
             <>
               {displayIds.map((rowId) => (
-                <RowPreview
-                  key={rowId}
-                  rowId={rowId}
-                  row={rows[rowId]}
-                  columns={previewColumns}
-                />
+                <RowPreview key={rowId} rowId={rowId} row={rows[rowId]} columns={previewColumns} />
               ))}
               {hasMore && (
                 <Text className="text-muted-foreground mt-1 text-center text-xs">
@@ -150,7 +145,7 @@ function TableSection({ tableName }: TableSectionProps) {
 export function StoreInspector() {
   return (
     <View>
-      <Text className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+      <Text className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">
         Store Inspector
       </Text>
       <Text className="text-muted-foreground mb-3 text-xs">

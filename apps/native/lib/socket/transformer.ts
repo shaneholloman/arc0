@@ -266,7 +266,9 @@ function transformRawLineInternal(envelope: RawMessageEnvelope): TransformResult
   if (isCustomTitleLine(raw)) {
     // Generate UUID since custom-title doesn't have one
     const generatedId = Crypto.randomUUID();
-    const content: ContentBlock[] = [{ type: 'text', text: `Session renamed to: ${raw.customTitle}` }];
+    const content: ContentBlock[] = [
+      { type: 'text', text: `Session renamed to: ${raw.customTitle}` },
+    ];
 
     debugLog('transform', 'custom-title → system message', {
       sessionId: envelope.sessionId,
@@ -304,7 +306,9 @@ function transformRawLineInternal(envelope: RawMessageEnvelope): TransformResult
       ? raw.message.content
       : Array.isArray(raw.message.content)
         ? raw.message.content
-            .filter((b): b is { type: 'text'; text: string } => (b as { type?: string })?.type === 'text')
+            .filter(
+              (b): b is { type: 'text'; text: string } => (b as { type?: string })?.type === 'text'
+            )
             .map((b) => b.text)
             .join('\n')
         : '';
@@ -436,7 +440,9 @@ export interface TransformBatchResult {
  *
  * Uses parentUuid (parent_id) to match outputs with their commands, not position.
  */
-export function transformRawBatchWithOutputs(envelopes: RawMessageEnvelope[]): TransformBatchResult {
+export function transformRawBatchWithOutputs(
+  envelopes: RawMessageEnvelope[]
+): TransformBatchResult {
   // First pass: transform all envelopes with metadata
   const results = envelopes
     .map(transformRawLineInternal)
@@ -749,9 +755,10 @@ export function extractSessionNameUpdates(envelopes: RawMessageEnvelope[]): Sess
  * Get last message info from a batch of raw envelopes.
  * Used for cursor tracking.
  */
-export function getLastMessageInfo(
-  envelopes: RawMessageEnvelope[]
-): { lastMessageId: string; lastMessageTs: string } {
+export function getLastMessageInfo(envelopes: RawMessageEnvelope[]): {
+  lastMessageId: string;
+  lastMessageTs: string;
+} {
   // Filter to message lines only
   const messageEnvelopes = envelopes.filter((e) => isMessageLine(e.payload));
 

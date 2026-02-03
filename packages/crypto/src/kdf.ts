@@ -35,7 +35,7 @@ export interface DerivedKeys {
  */
 export function deriveKeys(
   sharedSecret: Uint8Array,
-  transcript: Uint8Array
+  transcript: Uint8Array,
 ): DerivedKeys {
   // Use transcript hash as salt for domain separation
   const salt = sha256(transcript);
@@ -46,7 +46,7 @@ export function deriveKeys(
     sharedSecret,
     salt,
     utf8ToBytes(AUTH_TOKEN_INFO),
-    AUTH_TOKEN_LENGTH
+    AUTH_TOKEN_LENGTH,
   );
 
   // Derive encryption key
@@ -55,7 +55,7 @@ export function deriveKeys(
     sharedSecret,
     salt,
     utf8ToBytes(ENCRYPTION_KEY_INFO),
-    ENCRYPTION_KEY_LENGTH
+    ENCRYPTION_KEY_LENGTH,
   );
 
   return {
@@ -77,7 +77,7 @@ export function deriveKey(
   sharedSecret: Uint8Array,
   salt: Uint8Array,
   info: string,
-  length: number
+  length: number,
 ): Uint8Array {
   return hkdf(sha256, sharedSecret, salt, utf8ToBytes(info), length);
 }

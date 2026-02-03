@@ -53,8 +53,7 @@ function RootStack({ theme }: { theme: 'light' | 'dark' | undefined }) {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
-      }}
-    >
+      }}>
       <Stack.Screen name="(drawer)" />
       <Stack.Screen
         name="settings"
@@ -153,27 +152,27 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <View testID="app-root" accessibilityLabel="app-root" accessible={true} style={{ flex: 1 }}>
-      <StoreProvider>
-        <PostHogProvider>
-          <PostHogErrorBoundary>
-            <StatsigProvider>
-              <SocketProvider>
-              <UserActionsProvider>
-                <KeyboardProvider>
-                  <ThemeProvider value={NAV_THEME[theme ?? 'light']}>
-                    <ShakeHandler />
-                    <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-                    <RootStack theme={theme} />
-                    <ConnectionBanner />
-                    <PortalHost />
-                  </ThemeProvider>
-                </KeyboardProvider>
-              </UserActionsProvider>
-              </SocketProvider>
-            </StatsigProvider>
-          </PostHogErrorBoundary>
-        </PostHogProvider>
-      </StoreProvider>
+        <StoreProvider>
+          <PostHogProvider>
+            <PostHogErrorBoundary>
+              <StatsigProvider>
+                <SocketProvider>
+                  <UserActionsProvider>
+                    <KeyboardProvider>
+                      <ThemeProvider value={NAV_THEME[theme ?? 'light']}>
+                        <ShakeHandler />
+                        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+                        <RootStack theme={theme} />
+                        <ConnectionBanner />
+                        <PortalHost />
+                      </ThemeProvider>
+                    </KeyboardProvider>
+                  </UserActionsProvider>
+                </SocketProvider>
+              </StatsigProvider>
+            </PostHogErrorBoundary>
+          </PostHogProvider>
+        </StoreProvider>
       </View>
     </GestureHandlerRootView>
   );

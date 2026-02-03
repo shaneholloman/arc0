@@ -3,7 +3,11 @@ import pc from "picocolors";
 import { existsSync } from "node:fs";
 import { isDaemonLocked } from "../../shared/lock.js";
 import { readDaemonState } from "../../shared/pid.js";
-import { TUNNEL_DOMAIN, loadConfig, type Arc0Config } from "../../shared/config.js";
+import {
+  TUNNEL_DOMAIN,
+  loadConfig,
+  type Arc0Config,
+} from "../../shared/config.js";
 import { PLIST_PATH, isLaunchAgentLoaded } from "./install.js";
 import { loadCredentials } from "../../shared/credentials.js";
 
@@ -31,7 +35,10 @@ function formatUptime(seconds: number): string {
   return `${hours}h ${mins}m`;
 }
 
-async function fetchDaemonApi<T>(port: number, endpoint: string): Promise<T | null> {
+async function fetchDaemonApi<T>(
+  port: number,
+  endpoint: string,
+): Promise<T | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
@@ -69,8 +76,14 @@ export async function statusCommand(): Promise<void> {
   }
 
   // Fetch status from HTTP API (control server)
-  const apiStatus = await fetchDaemonApi<DaemonApiStatus>(controlPort, "/api/status");
-  const apiClients = await fetchDaemonApi<DaemonApiClients>(controlPort, "/api/clients");
+  const apiStatus = await fetchDaemonApi<DaemonApiStatus>(
+    controlPort,
+    "/api/status",
+  );
+  const apiClients = await fetchDaemonApi<DaemonApiClients>(
+    controlPort,
+    "/api/clients",
+  );
 
   s.stop("Status check complete");
 

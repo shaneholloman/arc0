@@ -123,7 +123,9 @@ function isTaskUpdateBlock(block: RawContentBlock): boolean {
   return block.type === 'tool_use' && block.name === 'TaskUpdate';
 }
 
-function isToolResultBlock(block: RawContentBlock | RawToolResultBlock): block is RawToolResultBlock {
+function isToolResultBlock(
+  block: RawContentBlock | RawToolResultBlock
+): block is RawToolResultBlock {
   return block.type === 'tool_result' && 'tool_use_id' in block;
 }
 
@@ -419,7 +421,10 @@ export function parseTodosContent(content: string): TodoItem[] {
 /**
  * Parse plan artifact content.
  */
-export function parsePlanContent(content: string): { plan: string | null; allowedPrompts: unknown[] } {
+export function parsePlanContent(content: string): {
+  plan: string | null;
+  allowedPrompts: unknown[];
+} {
   try {
     return JSON.parse(content) as { plan: string | null; allowedPrompts: unknown[] };
   } catch {
@@ -442,9 +447,7 @@ export interface TaskUpdateInfo {
  * Extract TaskUpdate calls from a batch (without requiring TaskCreate).
  * Used for merging updates into existing artifacts.
  */
-export function extractTaskUpdatesFromBatch(
-  envelopes: RawMessageEnvelope[]
-): TaskUpdateInfo[] {
+export function extractTaskUpdatesFromBatch(envelopes: RawMessageEnvelope[]): TaskUpdateInfo[] {
   const updates: TaskUpdateInfo[] = [];
 
   for (const envelope of envelopes) {

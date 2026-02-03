@@ -2,9 +2,9 @@
  * StatusBar - Displays action feedback at bottom of left pane.
  */
 
-import React from 'react';
-import { Box, Text } from 'ink';
-import type { StatusType, CategoryKey } from '../types.js';
+import React from "react";
+import { Box, Text } from "ink";
+import type { StatusType, CategoryKey } from "../types.js";
 
 interface StatusBarProps {
   message: string | null;
@@ -13,23 +13,23 @@ interface StatusBarProps {
 }
 
 const typeColors: Record<StatusType, string> = {
-  success: 'green',
-  error: 'red',
-  warn: 'yellow',
-  info: 'cyan',
+  success: "green",
+  error: "red",
+  warn: "yellow",
+  info: "cyan",
 };
 
 const typeIcons: Record<StatusType, string> = {
-  success: '✓',
-  error: '✗',
-  warn: '!',
-  info: 'i',
+  success: "✓",
+  error: "✗",
+  warn: "!",
+  info: "i",
 };
 
 const categoryLabels: Record<CategoryKey, string> = {
-  c: 'Connection',
-  s: 'Sessions',
-  m: 'Messages',
+  c: "Connection",
+  s: "Sessions",
+  m: "Messages",
 };
 
 export function StatusBar({
@@ -65,9 +65,7 @@ export function StatusBar({
             [{categoryLabels[activeCategory]}] Press key or ESC to cancel
           </Text>
         ) : (
-          <Text dimColor>
-            Press [c]onnection [s]essions [m]essages [q]uit
-          </Text>
+          <Text dimColor>Press [c]onnection [s]essions [m]essages [q]uit</Text>
         )}
       </Box>
     </Box>

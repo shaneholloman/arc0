@@ -13,7 +13,12 @@ export const authMethodSchema = z.enum(["api-key", "oauth"]);
 export type AuthMethod = z.infer<typeof authMethodSchema>;
 
 // Message role in conversation
-export const messageRoleSchema = z.enum(["user", "assistant", "system", "tool"]);
+export const messageRoleSchema = z.enum([
+  "user",
+  "assistant",
+  "system",
+  "tool",
+]);
 export type MessageRole = z.infer<typeof messageRoleSchema>;
 
 // Content block type within a message

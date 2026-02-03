@@ -34,20 +34,12 @@ export function Shimmer({ children, isShimmering = true, duration = 1500 }: Shim
   }, [isShimmering, duration, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(
-      progress.value,
-      [0, 0.5, 1],
-      [0.4, 1, 0.4]
-    );
+    const opacity = interpolate(progress.value, [0, 0.5, 1], [0.4, 1, 0.4]);
 
     return { opacity };
   });
 
-  return (
-    <Animated.View style={[styles.container, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={[styles.container, animatedStyle]}>{children}</Animated.View>;
 }
 
 const styles = StyleSheet.create({

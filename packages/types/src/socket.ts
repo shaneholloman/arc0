@@ -223,9 +223,9 @@ export interface PairingClientToServer {
  */
 export interface ServerToClient extends PairingServerToClient {
   // Encrypted payloads
-  "sessions": (payload: EncryptedEnvelope) => void;
-  "projects": (payload: EncryptedEnvelope) => void;
-  "messages": (payload: EncryptedEnvelope, ack: () => void) => void;
+  sessions: (payload: EncryptedEnvelope) => void;
+  projects: (payload: EncryptedEnvelope) => void;
+  messages: (payload: EncryptedEnvelope, ack: () => void) => void;
   // Note: Permission requests are sent through the "messages" channel
   // with payload.type === 'permission_request'
 }
@@ -237,10 +237,22 @@ export interface ClientToServer extends PairingClientToServer {
   // init remains unencrypted (cursor sync, no sensitive data)
   init: (payload: InitPayload) => void;
   // User actions - encrypted payloads with ack
-  openSession: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
-  sendPrompt: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
-  stopAgent: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
-  approveToolUse: (payload: EncryptedEnvelope, ack: (result: ActionResult) => void) => void;
+  openSession: (
+    payload: EncryptedEnvelope,
+    ack: (result: ActionResult) => void,
+  ) => void;
+  sendPrompt: (
+    payload: EncryptedEnvelope,
+    ack: (result: ActionResult) => void,
+  ) => void;
+  stopAgent: (
+    payload: EncryptedEnvelope,
+    ack: (result: ActionResult) => void,
+  ) => void;
+  approveToolUse: (
+    payload: EncryptedEnvelope,
+    ack: (result: ActionResult) => void,
+  ) => void;
 }
 
 // =============================================================================

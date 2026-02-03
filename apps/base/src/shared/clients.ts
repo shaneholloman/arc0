@@ -53,7 +53,6 @@ function saveClientStore(store: ClientStore): void {
   writeFileSync(CLIENTS_FILE, JSON.stringify(store, null, 2), { mode: 0o600 });
 }
 
-
 /**
  * Add or update a client.
  *
@@ -66,7 +65,7 @@ export function addClient(
   deviceId: string,
   authToken: Uint8Array,
   encryptionKey?: Uint8Array,
-  deviceName?: string
+  deviceName?: string,
 ): void {
   const store = loadClientStore();
 
@@ -84,7 +83,9 @@ export function addClient(
   };
 
   saveClientStore(store);
-  console.log(`[clients] Added client: ${deviceId}${deviceName ? ` (${deviceName})` : ""}`);
+  console.log(
+    `[clients] Added client: ${deviceId}${deviceName ? ` (${deviceName})` : ""}`,
+  );
 }
 
 /**
@@ -147,7 +148,9 @@ export function revokeClient(deviceId: string): boolean {
   delete store.clients[deviceId];
   saveClientStore(store);
 
-  console.log(`[clients] Revoked client: ${deviceId}${clientName ? ` (${clientName})` : ""}`);
+  console.log(
+    `[clients] Revoked client: ${deviceId}${clientName ? ` (${clientName})` : ""}`,
+  );
   return true;
 }
 
@@ -181,7 +184,10 @@ export function hasClient(deviceId: string): boolean {
 /**
  * Update client device name.
  */
-export function updateClientName(deviceId: string, deviceName: string): boolean {
+export function updateClientName(
+  deviceId: string,
+  deviceName: string,
+): boolean {
   const store = loadClientStore();
   const client = store.clients[deviceId];
 

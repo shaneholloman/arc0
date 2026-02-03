@@ -18,7 +18,13 @@ import path from 'path';
 // =============================================================================
 
 export interface InjectMessageOptions {
-  type: 'bash' | 'bash-permission' | 'ask-question' | 'exit-plan-mode' | 'assistant-text' | 'user-text';
+  type:
+    | 'bash'
+    | 'bash-permission'
+    | 'ask-question'
+    | 'exit-plan-mode'
+    | 'assistant-text'
+    | 'user-text';
   sessionId?: string; // Uses current session if not provided
   command?: string;
   description?: string;
@@ -118,7 +124,10 @@ async function waitForServer(controlUrl: string, timeout = 15000): Promise<void>
 function killProcessOnPort(port: number): void {
   try {
     // Use lsof to find PIDs on the port (macOS/Linux)
-    const output = execFileSync('lsof', ['-ti', `:${port}`], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
+    const output = execFileSync('lsof', ['-ti', `:${port}`], {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    });
     const pids = output.trim().split('\n').filter(Boolean);
     for (const pid of pids) {
       try {
@@ -138,9 +147,7 @@ function killProcessOnPort(port: number): void {
 function startBaseMockServer(port: number, secret: string): ChildProcess {
   // Calculate monorepo root from current working directory
   const cwd = process.cwd();
-  const monorepoRoot = cwd.includes('/apps/native')
-    ? cwd.split('/apps/native')[0]
-    : cwd;
+  const monorepoRoot = cwd.includes('/apps/native') ? cwd.split('/apps/native')[0] : cwd;
 
   const basemockDir = path.join(monorepoRoot, 'apps/basemock');
 
@@ -251,7 +258,9 @@ export const test = base.extend<BaseMockFixtures>({
           await page.locator('[data-testid="workstation-save-button"]').click();
 
           // Wait for modal to close
-          await expect(page.locator('[data-testid="workstation-save-button"]')).not.toBeVisible({ timeout: 5000 });
+          await expect(page.locator('[data-testid="workstation-save-button"]')).not.toBeVisible({
+            timeout: 5000,
+          });
 
           // Go back to drawer
           // Click outside settings or use close button
@@ -344,10 +353,14 @@ export const test = base.extend<BaseMockFixtures>({
           const id = sessionId || (await api.getCurrentSession())?.id;
           if (!id) throw new Error('No session ID available');
           await page.goto(`/session/${id}/chat`);
-          await expect(page.locator('[data-testid="message-input"]')).toBeVisible({ timeout: 10000 });
+          await expect(page.locator('[data-testid="message-input"]')).toBeVisible({
+            timeout: 10000,
+          });
           // Wait for socket connection to fully establish
           // The connection indicator shows UI is ready, but socket needs a moment to connect
-          await expect(page.locator('[data-testid="connection-indicator"]')).toBeVisible({ timeout: 10000 });
+          await expect(page.locator('[data-testid="connection-indicator"]')).toBeVisible({
+            timeout: 10000,
+          });
           // Small delay to allow socket handshake to complete
           await page.waitForTimeout(1000);
         },

@@ -1,5 +1,19 @@
-import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync } from "node:fs";
-import { PID_FILE, STATE_FILE, CONFIG_DIR, CONFIG_FILE, type DaemonState, type PortPreferences, type Arc0Config } from "./config.js";
+import {
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+  existsSync,
+  mkdirSync,
+} from "node:fs";
+import {
+  PID_FILE,
+  STATE_FILE,
+  CONFIG_DIR,
+  CONFIG_FILE,
+  type DaemonState,
+  type PortPreferences,
+  type Arc0Config,
+} from "./config.js";
 
 export function writePid(pid: number): void {
   if (!existsSync(CONFIG_DIR)) {
@@ -76,7 +90,10 @@ export function getPreferredPorts(): PortPreferences | null {
   }
 }
 
-export function savePreferredPorts(controlPort: number, socketPort: number): void {
+export function savePreferredPorts(
+  controlPort: number,
+  socketPort: number,
+): void {
   try {
     let config: Arc0Config;
     try {

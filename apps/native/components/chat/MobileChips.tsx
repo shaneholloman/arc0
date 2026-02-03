@@ -26,12 +26,7 @@ interface MobileChipsProps {
 // Component
 // =============================================================================
 
-export function MobileChips({
-  mode,
-  model,
-  onPress,
-  disabled = false,
-}: MobileChipsProps) {
+export function MobileChips({ mode, model, onPress, disabled = false }: MobileChipsProps) {
   const modeLabel = MODE_OPTIONS.find((o) => o.value === mode)?.label ?? 'Auto';
   const modelLabel = MODEL_OPTIONS.find((o) => o.value === model)?.label ?? 'Default';
 
@@ -41,7 +36,7 @@ export function MobileChips({
         onPress={onPress}
         disabled={disabled}
         className={cn(
-          'flex-row items-center gap-1 rounded-md px-2 py-1 active:bg-muted',
+          'active:bg-muted flex-row items-center gap-1 rounded-md px-2 py-1',
           disabled && 'opacity-50'
         )}>
         <Text className="text-muted-foreground text-sm">{modeLabel}</Text>
@@ -51,7 +46,7 @@ export function MobileChips({
         onPress={onPress}
         disabled={disabled}
         className={cn(
-          'flex-row items-center gap-1 rounded-md px-2 py-1 active:bg-muted',
+          'active:bg-muted flex-row items-center gap-1 rounded-md px-2 py-1',
           disabled && 'opacity-50'
         )}>
         <Text className="text-muted-foreground text-sm">{modelLabel}</Text>

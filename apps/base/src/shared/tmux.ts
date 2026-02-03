@@ -15,7 +15,7 @@ const execAsync = promisify(exec);
 export async function findPaneByTty(tty: string): Promise<string | null> {
   try {
     const { stdout } = await execAsync(
-      `tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index} #{pane_tty}"`
+      `tmux list-panes -a -F "#{session_name}:#{window_index}.#{pane_index} #{pane_tty}"`,
     );
 
     for (const line of stdout.trim().split("\n")) {
@@ -44,11 +44,13 @@ export async function findPaneByTty(tty: string): Promise<string | null> {
 export async function sendToPane(
   target: string,
   message: string,
-  pressEnter: boolean = true
+  pressEnter: boolean = true,
 ): Promise<boolean> {
   try {
     // Send the message text literally
-    await execAsync(`tmux send-keys -t ${target} -l ${JSON.stringify(message)}`);
+    await execAsync(
+      `tmux send-keys -t ${target} -l ${JSON.stringify(message)}`,
+    );
 
     if (pressEnter) {
       await execAsync(`tmux send-keys -t ${target} Enter`);
@@ -66,7 +68,10 @@ export async function sendToPane(
  * @param target The tmux target (e.g., "main:0.1")
  * @param key The key to send (e.g., "Escape", "Enter")
  */
-export async function sendKeyToPane(target: string, key: string): Promise<boolean> {
+export async function sendKeyToPane(
+  target: string,
+  key: string,
+): Promise<boolean> {
   try {
     await execAsync(`tmux send-keys -t ${target} ${key}`);
     return true;
@@ -146,7 +151,7 @@ export async function ensureArc0Session(): Promise<string | null> {
  */
 export async function createWindow(
   windowName: string | undefined,
-  cwd: string
+  cwd: string,
 ): Promise<string | null> {
   try {
     // Build the command with proper shell escaping
@@ -179,10 +184,15 @@ export async function createWindow(
  * @param command The command to run
  * @returns true if successful
  */
-export async function runInPane(target: string, command: string): Promise<boolean> {
+export async function runInPane(
+  target: string,
+  command: string,
+): Promise<boolean> {
   try {
     // Send the command literally (-l flag) and press Enter
-    await execAsync(`tmux send-keys -t ${target} -l ${JSON.stringify(command)}`);
+    await execAsync(
+      `tmux send-keys -t ${target} -l ${JSON.stringify(command)}`,
+    );
     await execAsync(`tmux send-keys -t ${target} Enter`);
     return true;
   } catch (error) {
@@ -190,4 +200,3 @@ export async function runInPane(target: string, command: string): Promise<boolea
     return false;
   }
 }
-

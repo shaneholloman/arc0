@@ -63,7 +63,8 @@ function printRainbowArt(): void {
         const colorIndex = Math.floor(
           (i / maxLen) * (GRADIENT_COLORS.length - 1),
         );
-        coloredLine += (GRADIENT_COLORS[colorIndex] ?? "") + (char ?? "") + RESET;
+        coloredLine +=
+          (GRADIENT_COLORS[colorIndex] ?? "") + (char ?? "") + RESET;
       }
     }
     console.log(coloredLine);

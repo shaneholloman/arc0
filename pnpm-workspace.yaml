@@ -3,6 +3,7 @@ packages:
   - apps/*
 
 catalog:
+  "@types/react": "19.1.17"
   typescript: "~5.9.2"
   zod: ^4.1.13
   eslint: "~9.39.2"

@@ -117,8 +117,8 @@ export function PlanApprovalDisplay({
       {/* Plan content display */}
       {planContent ? (
         <View className="mb-4">
-          <Text className="mb-2 text-xs font-medium text-muted-foreground">Plan</Text>
-          <View className="rounded-lg border border-border bg-background p-3">
+          <Text className="text-muted-foreground mb-2 text-xs font-medium">Plan</Text>
+          <View className="border-border bg-background rounded-lg border p-3">
             <MarkdownContent content={planContent} />
           </View>
         </View>
@@ -154,7 +154,9 @@ export function PlanApprovalDisplay({
                     {opt.label}
                   </Text>
                   {opt.description && (
-                    <Text className="text-muted-foreground mt-0.5 text-[10px]">{opt.description}</Text>
+                    <Text className="text-muted-foreground mt-0.5 text-[10px]">
+                      {opt.description}
+                    </Text>
                   )}
                 </View>
               </View>
@@ -162,13 +164,20 @@ export function PlanApprovalDisplay({
 
             if (isInteractive) {
               return (
-                <Pressable key={opt.value} testID={`plan-${opt.value}`} onPress={() => handleOptionPress(opt.value)}>
+                <Pressable
+                  key={opt.value}
+                  testID={`plan-${opt.value}`}
+                  onPress={() => handleOptionPress(opt.value)}>
                   {content}
                 </Pressable>
               );
             }
 
-            return <View key={opt.value} testID={`plan-${opt.value}`}>{content}</View>;
+            return (
+              <View key={opt.value} testID={`plan-${opt.value}`}>
+                {content}
+              </View>
+            );
           })}
         </View>
       </RadioGroup>

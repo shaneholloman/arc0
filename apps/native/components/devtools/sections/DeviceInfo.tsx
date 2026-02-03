@@ -11,7 +11,7 @@ export function DeviceInfo() {
 
   return (
     <View className="mb-3">
-      <Text className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
+      <Text className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
         Device ID
       </Text>
       <View className="bg-muted/50 rounded px-2 py-1">

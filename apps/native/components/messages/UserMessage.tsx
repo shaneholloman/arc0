@@ -9,9 +9,9 @@ interface UserMessageProps {
 
 export function UserMessage({ text }: UserMessageProps) {
   return (
-    <View className="flex-row items-start gap-2 rounded-sm border border-border bg-primary px-2.5 py-1.5">
-      <Icon as={UserIcon} size={16} className="mt-0.5 shrink-0 text-primary-foreground" />
-      <Text className="flex-1 text-sm text-primary-foreground leading-relaxed">{text}</Text>
+    <View className="border-border bg-primary flex-row items-start gap-2 rounded-sm border px-2.5 py-1.5">
+      <Icon as={UserIcon} size={16} className="text-primary-foreground mt-0.5 shrink-0" />
+      <Text className="text-primary-foreground flex-1 text-sm leading-relaxed">{text}</Text>
     </View>
   );
 }

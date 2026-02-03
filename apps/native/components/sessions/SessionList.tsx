@@ -59,7 +59,8 @@ export function SessionList({
 
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === 'header') {
-      const testID = item.title === 'Open Sessions' ? 'open-sessions-section' : 'closed-sessions-section';
+      const testID =
+        item.title === 'Open Sessions' ? 'open-sessions-section' : 'closed-sessions-section';
       return (
         <Pressable
           testID={testID}

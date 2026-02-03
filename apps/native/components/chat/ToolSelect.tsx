@@ -54,7 +54,10 @@ export function ToolSelect({
       }}>
       <SelectPrimitive.Trigger disabled={disabled} asChild>
         <Pressable
-          className={cn('flex-row items-center gap-1 rounded-md px-2 py-1 hover:bg-muted', disabled && 'opacity-50')}
+          className={cn(
+            'hover:bg-muted flex-row items-center gap-1 rounded-md px-2 py-1',
+            disabled && 'opacity-50'
+          )}
           accessibilityRole="button">
           <Text className="text-muted-foreground text-sm">{displayLabel}</Text>
           <Icon as={ChevronDown} className="text-muted-foreground size-3" />

@@ -1,4 +1,9 @@
-import type { Message, ToolResultBlock, ToolUseBlock, ToolUseResultMetadata } from '@/lib/types/session';
+import type {
+  Message,
+  ToolResultBlock,
+  ToolUseBlock,
+  ToolUseResultMetadata,
+} from '@/lib/types/session';
 
 export interface ToolResultWithMetadata {
   block: ToolResultBlock;

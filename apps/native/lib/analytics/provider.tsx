@@ -13,7 +13,8 @@ import { getDeviceId, getDeviceProperties } from './device';
 import { ScreenTracker } from './screen-tracker';
 
 // PostHog configuration from environment
-const POSTHOG_API_KEY = process.env.EXPO_PUBLIC_POSTHOG_API_KEY ?? 'phc_TPh6CJJTxUSkNsswaEKSKmWpvEBeTMbEX3PAt1nhfEc';
+const POSTHOG_API_KEY =
+  process.env.EXPO_PUBLIC_POSTHOG_API_KEY ?? 'phc_TPh6CJJTxUSkNsswaEKSKmWpvEBeTMbEX3PAt1nhfEc';
 const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 const ANALYTICS_OPT_OUT = process.env.EXPO_PUBLIC_ANALYTICS_OPT_OUT === 'true';
 

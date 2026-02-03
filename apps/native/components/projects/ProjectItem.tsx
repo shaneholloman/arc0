@@ -69,7 +69,7 @@ export function ProjectItem({
                 <View className={`size-2 rounded-full ${STATUS_COLORS.error.dot}`} />
               )}
             </View>
-            <Text className="text-muted-foreground text-xs font-mono" numberOfLines={1}>
+            <Text className="text-muted-foreground font-mono text-xs" numberOfLines={1}>
               {truncatedPath} · {sessionCount} session{sessionCount !== 1 ? 's' : ''}
             </Text>
           </View>

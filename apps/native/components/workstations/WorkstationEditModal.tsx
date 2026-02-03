@@ -25,7 +25,13 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { AlertTriangleIcon, CheckCircleIcon, Trash2Icon, XCircleIcon, XIcon } from 'lucide-react-native';
+import {
+  AlertTriangleIcon,
+  CheckCircleIcon,
+  Trash2Icon,
+  XCircleIcon,
+  XIcon,
+} from 'lucide-react-native';
 import { useUniwind } from 'uniwind';
 import { useTable, useValue } from 'tinybase/ui-react';
 
@@ -111,28 +117,31 @@ function usePairing(deviceId: string | undefined) {
   const [pairingError, setPairingError] = useState<string | null>(null);
   const abortRef = useRef(false);
 
-  const pair = useCallback(async (url: string, code: string): Promise<PairingResult | null> => {
-    setIsPairing(true);
-    setPairingError(null);
-    abortRef.current = false;
+  const pair = useCallback(
+    async (url: string, code: string): Promise<PairingResult | null> => {
+      setIsPairing(true);
+      setPairingError(null);
+      abortRef.current = false;
 
-    try {
-      // Pass the device ID from the store to ensure consistency
-      const result = await pairWithWorkstation(url, code, deviceId);
-      if (abortRef.current) return null;
-      setPairingResult(result);
-      return result;
-    } catch (err) {
-      if (abortRef.current) return null;
-      const message = err instanceof Error ? err.message : 'Pairing failed';
-      setPairingError(message);
-      return null;
-    } finally {
-      if (!abortRef.current) {
-        setIsPairing(false);
+      try {
+        // Pass the device ID from the store to ensure consistency
+        const result = await pairWithWorkstation(url, code, deviceId);
+        if (abortRef.current) return null;
+        setPairingResult(result);
+        return result;
+      } catch (err) {
+        if (abortRef.current) return null;
+        const message = err instanceof Error ? err.message : 'Pairing failed';
+        setPairingError(message);
+        return null;
+      } finally {
+        if (!abortRef.current) {
+          setIsPairing(false);
+        }
       }
-    }
-  }, [deviceId]);
+    },
+    [deviceId]
+  );
 
   const reset = useCallback(() => {
     abortRef.current = true;
@@ -187,12 +196,16 @@ export function WorkstationEditModal({
   const [error, setError] = useState<string | null>(null);
 
   // Pairing - pass device ID from store
-  const { pair, isPairing, pairingResult, pairingError, reset: resetPairing } = usePairing(storeDeviceId);
+  const {
+    pair,
+    isPairing,
+    pairingResult,
+    pairingError,
+    reset: resetPairing,
+  } = usePairing(storeDeviceId);
 
   const isEditing = workstation !== null;
-  const connectionState = workstation
-    ? allConnectionStates.get(workstation.id)
-    : undefined;
+  const connectionState = workstation ? allConnectionStates.get(workstation.id) : undefined;
 
   // Check for issues with the pairing result
   const pairingIssue = (() => {
@@ -313,7 +326,8 @@ export function WorkstationEditModal({
 
         // Check for duplicates
         if (workstationsTable[pairingResult.workstationId]) {
-          const existingName = workstationsTable[pairingResult.workstationId].name ?? pairingResult.workstationId;
+          const existingName =
+            workstationsTable[pairingResult.workstationId].name ?? pairingResult.workstationId;
           setError(`A workstation "${existingName}" already exists with this Base.`);
           setIsSaving(false);
           return;
@@ -324,7 +338,8 @@ export function WorkstationEditModal({
         resetPairing();
 
         // Add new workstation with credentials from pairing
-        const workstationNameFinal = name.trim() || workstationName || `Workstation ${workstationId.slice(0, 8)}`;
+        const workstationNameFinal =
+          name.trim() || workstationName || `Workstation ${workstationId.slice(0, 8)}`;
         await addWorkstation(
           workstationId,
           workstationNameFinal,
@@ -380,14 +395,10 @@ export function WorkstationEditModal({
         performDelete();
       }
     } else {
-      Alert.alert(
-        'Delete Workstation',
-        `Delete "${workstation.name}"? This cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: performDelete },
-        ]
-      );
+      Alert.alert('Delete Workstation', `Delete "${workstation.name}"? This cannot be undone.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDelete },
+      ]);
     }
   }, [workstation, removeWorkstation, onClose]);
 
@@ -462,9 +473,7 @@ export function WorkstationEditModal({
                   />
                   <View className="flex-1">
                     <Text
-                      className={`text-sm ${
-                        !pairingIssue ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      className={`text-sm ${!pairingIssue ? 'text-green-600' : 'text-red-600'}`}>
                       {pairingIssue
                         ? 'Workstation already exists'
                         : `Connected to "${pairingResult.workstationName}"`}
@@ -483,10 +492,10 @@ export function WorkstationEditModal({
 
               {/* Pairing Error (new workstation only) */}
               {!isEditing && pairingError && !pairingResult && (
-                <View className="bg-red-500/10 mb-4 flex-row items-center gap-2 rounded-lg px-3 py-2">
+                <View className="mb-4 flex-row items-center gap-2 rounded-lg bg-red-500/10 px-3 py-2">
                   <Icon as={XCircleIcon} className="text-red-500" size={18} />
                   <View className="flex-1">
-                    <Text className="text-red-600 text-sm">{pairingError}</Text>
+                    <Text className="text-sm text-red-600">{pairingError}</Text>
                   </View>
                 </View>
               )}
@@ -512,7 +521,7 @@ export function WorkstationEditModal({
                   {isHttpUrl(url.trim()) && (
                     <View className="mt-2 flex-row items-center gap-2">
                       <Icon as={AlertTriangleIcon} className="text-yellow-600" size={14} />
-                      <Text className="text-yellow-600 text-xs">
+                      <Text className="text-xs text-yellow-600">
                         Consider using HTTPS for better security
                       </Text>
                     </View>

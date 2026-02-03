@@ -233,5 +233,7 @@ export function PendingQuestionProvider({ children }: PendingQuestionProviderPro
     ]
   );
 
-  return <PendingQuestionContext.Provider value={value}>{children}</PendingQuestionContext.Provider>;
+  return (
+    <PendingQuestionContext.Provider value={value}>{children}</PendingQuestionContext.Provider>
+  );
 }

@@ -1,5 +1,11 @@
 import * as p from "@clack/prompts";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  unlinkSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import {
   CONFIG_DIR,
@@ -17,7 +23,9 @@ interface ClaudeSettings {
   hooks?: {
     SessionStart?: Array<{ hooks: Array<{ type: string; command: string }> }>;
     SessionEnd?: Array<{ hooks: Array<{ type: string; command: string }> }>;
-    PermissionRequest?: Array<{ hooks: Array<{ type: string; command: string }> }>;
+    PermissionRequest?: Array<{
+      hooks: Array<{ type: string; command: string }>;
+    }>;
     [key: string]: unknown;
   };
   [key: string]: unknown;
@@ -37,7 +45,11 @@ function saveClaudeSettings(settings: ClaudeSettings): void {
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });
   }
-  writeFileSync(CLAUDE_SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf-8");
+  writeFileSync(
+    CLAUDE_SETTINGS_FILE,
+    JSON.stringify(settings, null, 2),
+    "utf-8",
+  );
 }
 
 function isClaudeHookInstalled(): boolean {
@@ -47,13 +59,13 @@ function isClaudeHookInstalled(): boolean {
   const permissionRequest = settings.hooks?.PermissionRequest;
 
   const hasStart = sessionStart?.some((entry) =>
-    entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+    entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
   );
   const hasEnd = sessionEnd?.some((entry) =>
-    entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+    entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
   );
   const hasPermission = permissionRequest?.some((entry) =>
-    entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+    entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
   );
 
   return Boolean(hasStart && hasEnd && hasPermission);
@@ -73,7 +85,10 @@ export async function installClaudeHooks(): Promise<boolean> {
     }
 
     // Use embedded script template and replace placeholder with config dir
-    const hookScript = CLAUDE_SESSION_SCRIPT.replace("__CONFIG_DIR__", CONFIG_DIR);
+    const hookScript = CLAUDE_SESSION_SCRIPT.replace(
+      "__CONFIG_DIR__",
+      CONFIG_DIR,
+    );
     writeFileSync(CLAUDE_HOOK_DEST, hookScript, "utf-8");
 
     // Load and update Claude settings
@@ -97,7 +112,7 @@ export async function installClaudeHooks(): Promise<boolean> {
       settings.hooks.SessionStart = [];
     }
     const hasStart = settings.hooks.SessionStart.some((entry) =>
-      entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+      entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
     );
     if (!hasStart) {
       settings.hooks.SessionStart.push(hookEntry);
@@ -108,7 +123,7 @@ export async function installClaudeHooks(): Promise<boolean> {
       settings.hooks.SessionEnd = [];
     }
     const hasEnd = settings.hooks.SessionEnd.some((entry) =>
-      entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+      entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
     );
     if (!hasEnd) {
       settings.hooks.SessionEnd.push(hookEntry);
@@ -119,7 +134,7 @@ export async function installClaudeHooks(): Promise<boolean> {
       settings.hooks.PermissionRequest = [];
     }
     const hasPermission = settings.hooks.PermissionRequest.some((entry) =>
-      entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+      entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
     );
     if (!hasPermission) {
       settings.hooks.PermissionRequest.push(hookEntry);
@@ -153,7 +168,8 @@ export async function uninstallClaudeHooks(): Promise<boolean> {
 
     if (settings.hooks?.SessionStart) {
       settings.hooks.SessionStart = settings.hooks.SessionStart.filter(
-        (entry) => !entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+        (entry) =>
+          !entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
       );
       if (settings.hooks.SessionStart.length === 0) {
         delete settings.hooks.SessionStart;
@@ -162,7 +178,8 @@ export async function uninstallClaudeHooks(): Promise<boolean> {
 
     if (settings.hooks?.SessionEnd) {
       settings.hooks.SessionEnd = settings.hooks.SessionEnd.filter(
-        (entry) => !entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
+        (entry) =>
+          !entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
       );
       if (settings.hooks.SessionEnd.length === 0) {
         delete settings.hooks.SessionEnd;
@@ -170,9 +187,11 @@ export async function uninstallClaudeHooks(): Promise<boolean> {
     }
 
     if (settings.hooks?.PermissionRequest) {
-      settings.hooks.PermissionRequest = settings.hooks.PermissionRequest.filter(
-        (entry) => !entry.hooks?.some((h) => h.command?.includes("claude-session.js"))
-      );
+      settings.hooks.PermissionRequest =
+        settings.hooks.PermissionRequest.filter(
+          (entry) =>
+            !entry.hooks?.some((h) => h.command?.includes("claude-session.js")),
+        );
       if (settings.hooks.PermissionRequest.length === 0) {
         delete settings.hooks.PermissionRequest;
       }
@@ -225,7 +244,9 @@ export async function hooksCommand(subcommand?: string): Promise<void> {
       if (config.enabledProviders.claude) {
         await installClaudeHooks();
       } else {
-        p.log.warn("Claude Code is not enabled. Enable it in 'arc0 init' first.");
+        p.log.warn(
+          "Claude Code is not enabled. Enable it in 'arc0 init' first.",
+        );
       }
       // TODO: Add Codex and Gemini
       break;
@@ -245,7 +266,11 @@ export async function hooksCommand(subcommand?: string): Promise<void> {
         message: "What would you like to do?",
         options: [
           { value: "status", label: "Status", hint: "Check installed hooks" },
-          { value: "install", label: "Install", hint: "Install hooks for enabled providers" },
+          {
+            value: "install",
+            label: "Install",
+            hint: "Install hooks for enabled providers",
+          },
           { value: "uninstall", label: "Uninstall", hint: "Remove all hooks" },
         ],
       });
