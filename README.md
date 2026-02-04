@@ -52,7 +52,9 @@ It's our daily driver, and we have a lot planned: Claude Code today, with suppor
 
 ## 🚀 Getting Started
 
-Coming soon.
+```bash
+curl -fsSL arc0.ai/install.sh | bash
+```
 
 ## ✨ Features
 
