@@ -21,7 +21,6 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useUniwind } from 'uniwind';
 import { Pressable } from 'react-native';
 import { XIcon } from 'lucide-react-native';
-import { ShakeHandler } from '@/components/ShakeHandler';
 
 // Keep splash screen visible while loading
 SplashScreen.preventAutoHideAsync();
@@ -160,7 +159,6 @@ export default function RootLayout() {
                   <UserActionsProvider>
                     <KeyboardProvider>
                       <ThemeProvider value={NAV_THEME[theme ?? 'light']}>
-                        <ShakeHandler />
                         <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
                         <RootStack theme={theme} />
                         <ConnectionBanner />
