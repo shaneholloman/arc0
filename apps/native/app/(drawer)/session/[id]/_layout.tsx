@@ -73,6 +73,7 @@ export default function SessionLayout() {
   const indexes = useIndexes();
   const isFocused = useIsFocused();
   const previousSessionIdRef = useRef<string>('');
+  const { isPersistent, isWeb } = useResponsiveDrawer();
 
   // Track active session and unload previous session's messages
   useEffect(() => {
@@ -113,10 +114,10 @@ export default function SessionLayout() {
               backgroundColor: colors.background,
               borderTopWidth: 1,
               borderTopColor: colors.border,
-              height: 60,
+              ...(isWeb && { height: isPersistent ? 60 : 68 }),
             },
             tabBarItemStyle: {
-              paddingVertical: 6,
+              paddingVertical: isPersistent ? 6 : 8,
             },
             tabBarActiveTintColor: colors.primary,
             tabBarInactiveTintColor: colors.mutedForeground,
