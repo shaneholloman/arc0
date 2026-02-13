@@ -5,7 +5,7 @@ import { Platform, View } from 'react-native';
 import { useFonts, Geist_400Regular } from '@expo-google-fonts/geist';
 import { GeistMono_400Regular } from '@expo-google-fonts/geist-mono';
 import { PostHogErrorBoundary, PostHogProvider } from '@/lib/analytics';
-import { StatsigProvider } from '@/lib/statsig';
+
 import { ConnectionBanner } from '@/components/ConnectionBanner';
 import { NAV_THEME, THEME } from '@/lib/theme';
 import { UserActionsProvider } from '@/lib/contexts/UserActionsContext';
@@ -154,20 +154,18 @@ export default function RootLayout() {
         <StoreProvider>
           <PostHogProvider>
             <PostHogErrorBoundary>
-              <StatsigProvider>
-                <SocketProvider>
-                  <UserActionsProvider>
-                    <KeyboardProvider>
-                      <ThemeProvider value={NAV_THEME[theme ?? 'light']}>
-                        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-                        <RootStack theme={theme} />
-                        <ConnectionBanner />
-                        <PortalHost />
-                      </ThemeProvider>
-                    </KeyboardProvider>
-                  </UserActionsProvider>
-                </SocketProvider>
-              </StatsigProvider>
+              <SocketProvider>
+                <UserActionsProvider>
+                  <KeyboardProvider>
+                    <ThemeProvider value={NAV_THEME[theme ?? 'light']}>
+                      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+                      <RootStack theme={theme} />
+                      <ConnectionBanner />
+                      <PortalHost />
+                    </ThemeProvider>
+                  </KeyboardProvider>
+                </UserActionsProvider>
+              </SocketProvider>
             </PostHogErrorBoundary>
           </PostHogProvider>
         </StoreProvider>
