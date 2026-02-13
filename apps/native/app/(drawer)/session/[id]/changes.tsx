@@ -245,12 +245,15 @@ const MOCK_CHANGES: FileChangeItem[] = [
 
 export default function ChangesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    new Set((typeof window !== 'undefined' && (window as any).__ARC0_MOCK_CHANGES_EXPANDED__) || [])
+  );
   const [allExpanded, setAllExpanded] = useState(false);
   const [overlayDismissed, setOverlayDismissed] = useState(false);
 
-  // Using mock data for now
-  const changes = MOCK_CHANGES;
+  // Dev override: inject data via window global
+  const changes: FileChangeItem[] =
+    (typeof window !== 'undefined' && (window as any).__ARC0_MOCK_CHANGES__) || MOCK_CHANGES;
 
   const { stagedChanges, unstagedChanges } = useMemo(() => {
     const staged = changes.filter((c) => c.staged);
