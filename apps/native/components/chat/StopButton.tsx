@@ -34,7 +34,7 @@ export function StopButton({ onPress, isLoading = false, disabled = false }: Sto
       {isLoading ? (
         <ActivityIndicator size="small" color="white" />
       ) : (
-        <Icon as={SquareIcon} className="text-destructive-foreground size-5" />
+        <Icon as={SquareIcon} className="text-destructive-foreground size-4" />
       )}
     </Pressable>
   );
