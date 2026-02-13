@@ -18,7 +18,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ai.amical.arc0",
+      "bundleIdentifier": "ai.arc0.app",
       "associatedDomains": ["applinks:arc0.ai", "applinks:www.arc0.ai"],
       "appleTeamId": "59CRJ9SJ4N"
     },
@@ -29,7 +29,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#000000"
       },
-      "package": "ai.amical.arc0",
+      "package": "ai.arc0.app",
       "intentFilters": [
         {
           "action": "VIEW",
