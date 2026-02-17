@@ -47,6 +47,20 @@ import { THEME } from '@/lib/theme';
 // =============================================================================
 
 /**
+ * Normalizes a URL by prepending the appropriate protocol if missing.
+ * Uses http:// for localhost/LAN IPs, https:// for everything else.
+ */
+function normalizeUrl(urlString: string): string {
+  const trimmed = urlString.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(trimmed)) {
+    return `http://${trimmed}`;
+  }
+  return `https://${trimmed}`;
+}
+
+/**
  * Validates if a string is a valid URL with http/https protocol
  */
 function isValidUrl(urlString: string): boolean {
@@ -264,9 +278,14 @@ export function WorkstationEditModal({
     }
   }, [visible, workstation, resetPairing, initialUrl, initialCode]);
 
-  // Reset pairing when URL or code changes
+  // Reset pairing when URL or code changes (skip programmatic normalization)
+  const isNormalizingRef = useRef(false);
   useEffect(() => {
     if (!isEditing) {
+      if (isNormalizingRef.current) {
+        isNormalizingRef.current = false;
+        return;
+      }
       resetPairing();
     }
   }, [url, pairingCode, isEditing, resetPairing]);
@@ -282,7 +301,8 @@ export function WorkstationEditModal({
       setError('URL is required');
       return;
     }
-    if (!isValidUrl(url.trim())) {
+    const normalized = normalizeUrl(url);
+    if (!isValidUrl(normalized)) {
       setError('Please enter a valid URL (e.g., https://io43e7u.t.arc0.ai)');
       return;
     }
@@ -290,8 +310,12 @@ export function WorkstationEditModal({
       setError('Please enter a valid pairing code (8 characters, e.g., ABCD-1234)');
       return;
     }
+    if (normalized !== url) {
+      isNormalizingRef.current = true;
+      setUrl(normalized);
+    }
     setError(null);
-    await pair(url.trim(), pairingCode);
+    await pair(normalized, pairingCode);
   }, [url, pairingCode, pair]);
 
   const handleSave = useCallback(async () => {
@@ -300,10 +324,12 @@ export function WorkstationEditModal({
       setError('URL is required');
       return;
     }
-    if (!isValidUrl(url.trim())) {
+    const normalized = normalizeUrl(url);
+    if (!isValidUrl(normalized)) {
       setError('Please enter a valid URL (e.g., https://io43e7u.t.arc0.ai)');
       return;
     }
+    if (normalized !== url) setUrl(normalized);
 
     setIsSaving(true);
     setError(null);
@@ -313,7 +339,7 @@ export function WorkstationEditModal({
         // Update existing workstation (name, URL, enabled only)
         await updateWorkstation(workstation.id, {
           name: name.trim() || workstation.name,
-          url: url.trim(),
+          url: normalized,
           enabled,
         });
       } else {
@@ -343,7 +369,7 @@ export function WorkstationEditModal({
         await addWorkstation(
           workstationId,
           workstationNameFinal,
-          url.trim(),
+          normalized,
           authToken,
           encryptionKey
         );
