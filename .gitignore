@@ -52,6 +52,12 @@ android/
 *.key
 *.mobileprovision
 *.orig.*
+*.apk
+*.aab
+*.ipa
+*.dSYM.zip
+*.dSYM/
+*.hprof
 web-build/
 
 # AI tools
@@ -59,7 +65,7 @@ web-build/
 agents/
 codex/
 gemini/
-claude.md
+CLAUDE.md
 agents.md
 AGENTS.md
 
