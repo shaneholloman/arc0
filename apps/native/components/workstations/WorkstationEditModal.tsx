@@ -34,6 +34,7 @@ import {
 } from 'lucide-react-native';
 import { useUniwind } from 'uniwind';
 import { useTable, useValue } from 'tinybase/ui-react';
+import { usePostHog } from 'posthog-react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -191,6 +192,7 @@ export function WorkstationEditModal({
   const { height: screenHeight } = useWindowDimensions();
   const { addWorkstation, updateWorkstation, removeWorkstation, allConnectionStates } =
     useSocketContext();
+  const posthog = usePostHog();
 
   // Get existing workstations to check for duplicates
   const workstationsTable = useTable('workstations') as Record<string, WorkstationRow>;
@@ -315,8 +317,11 @@ export function WorkstationEditModal({
       setUrl(normalized);
     }
     setError(null);
+    posthog?.capture('connection_started', {
+      source: initialUrl && initialCode ? 'deep_link' : 'manual',
+    });
     await pair(normalized, pairingCode);
-  }, [url, pairingCode, pair]);
+  }, [url, pairingCode, pair, posthog, initialUrl, initialCode]);
 
   const handleSave = useCallback(async () => {
     // Validate
@@ -361,6 +366,7 @@ export function WorkstationEditModal({
 
         // Capture pairing data before resetting (to prevent brief error flash)
         const { workstationId, workstationName, authToken, encryptionKey } = pairingResult;
+        const isFirstWorkstation = Object.keys(workstationsTable).length === 0;
         resetPairing();
 
         // Add new workstation with credentials from pairing
@@ -373,6 +379,11 @@ export function WorkstationEditModal({
           authToken,
           encryptionKey
         );
+
+        posthog?.capture('connection_completed', {
+          workstation_id: workstationId,
+          is_first_workstation: isFirstWorkstation,
+        });
 
         // Notify parent that workstation was added (for sync success modal)
         onClose();
@@ -399,15 +410,22 @@ export function WorkstationEditModal({
     onClose,
     onWorkstationAdded,
     resetPairing,
+    posthog,
   ]);
 
   const handleDelete = useCallback(() => {
     if (!workstation) return;
 
+    const isLastWorkstation = Object.keys(workstationsTable).length === 1;
+
     const performDelete = async () => {
       setIsDeleting(true);
       try {
         await removeWorkstation(workstation.id);
+        posthog?.capture('workstation_removed', {
+          workstation_id: workstation.id,
+          is_last_workstation: isLastWorkstation,
+        });
         onClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to delete workstation');
@@ -426,7 +444,7 @@ export function WorkstationEditModal({
         { text: 'Delete', style: 'destructive', onPress: performDelete },
       ]);
     }
-  }, [workstation, removeWorkstation, onClose]);
+  }, [workstation, removeWorkstation, onClose, workstationsTable, posthog]);
 
   const handleClose = () => {
     if (isSaving || isDeleting || isPairing) return;
