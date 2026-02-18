@@ -787,6 +787,42 @@ export function extractSessionNameUpdates(envelopes: RawMessageEnvelope[]): Sess
 }
 
 // =============================================================================
+// Session Git Branch Updates (from JSONL message lines)
+// =============================================================================
+
+/**
+ * Session git branch update extracted from JSONL lines.
+ */
+export interface SessionGitBranchUpdate {
+  sessionId: string;
+  gitBranch: string;
+}
+
+/**
+ * Extract git branch updates from raw envelopes in a batch.
+ * The gitBranch field appears on user, assistant, and progress lines.
+ * Uses the last seen value per session (branch can change mid-session).
+ */
+export function extractSessionGitBranchUpdates(
+  envelopes: RawMessageEnvelope[]
+): SessionGitBranchUpdate[] {
+  const updates = new Map<string, string>();
+
+  for (const envelope of envelopes) {
+    const payload = envelope.payload as Record<string, unknown> | null;
+    if (!payload || typeof payload !== 'object') continue;
+    if (typeof payload.gitBranch === 'string' && payload.gitBranch) {
+      updates.set(envelope.sessionId, payload.gitBranch);
+    }
+  }
+
+  return Array.from(updates.entries()).map(([sessionId, gitBranch]) => ({
+    sessionId,
+    gitBranch,
+  }));
+}
+
+// =============================================================================
 // Batch Result Helpers
 // =============================================================================
 

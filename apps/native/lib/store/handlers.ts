@@ -19,10 +19,12 @@ import {
   extractPermissionRequests,
   extractProjectsFromRaw,
   extractResolvedToolUseIds,
+  extractSessionGitBranchUpdates,
   extractSessionNameUpdates,
   getLastMessageInfo,
   transformRawBatchWithOutputs,
   type PermissionRequestLine,
+  type SessionGitBranchUpdate,
   type SessionNameUpdate,
 } from '../socket/transformer';
 import {
@@ -311,7 +313,6 @@ function upsertSession(
     // Note: name intentionally excluded - only set via custom-title messages
     const partial: Record<string, string | number> = {
       project_id: projectId ?? '',
-      git_branch: session.gitBranch ?? '',
       started_at: session.startedAt,
       open: 1,
       interactive,
@@ -321,6 +322,11 @@ function upsertSession(
     // Preserve existing model if base doesn't provide one (currently TODO in base)
     if (session.model) {
       partial.model = session.model;
+    }
+
+    // Preserve existing git_branch - primarily set from JSONL message lines
+    if (session.gitBranch) {
+      partial.git_branch = session.gitBranch;
     }
 
     store.setPartialRow('sessions', session.id, partial);
@@ -433,16 +439,18 @@ async function handleMessagesBatchInternal(
     messageTypes: processedMessages.map((m) => m.type),
   });
 
-  // Pre-extract permission updates for early-return batches and to avoid re-walking envelopes
+  // Pre-extract permission and git branch updates for early-return batches
   const permissionRequests = extractPermissionRequests(rawEnvelopes);
   const resolvedToolUseIds = extractResolvedToolUseIds(rawEnvelopes);
   const hasPermissionUpdates = permissionRequests.size > 0 || resolvedToolUseIds.size > 0;
+  const gitBranchUpdates = extractSessionGitBranchUpdates(rawEnvelopes);
 
   if (processedMessages.length === 0 && outputMessages.length === 0) {
-    // All lines were non-message types (summary, file-history-snapshot, permission_request, etc.)
+    // All lines were non-message types (summary, file-history-snapshot, progress, etc.)
     if (hasPermissionUpdates) {
       updatePendingPermissions(store, permissionRequests, resolvedToolUseIds);
     }
+    applySessionGitBranchUpdates(store, gitBranchUpdates);
     return { lastMessageId: '', lastMessageTs: '' };
   }
 
@@ -569,6 +577,9 @@ async function handleMessagesBatchInternal(
   // 5. Apply session name updates from custom-title messages
   const nameUpdates = extractSessionNameUpdates(rawEnvelopes);
   applySessionNameUpdates(store, nameUpdates);
+
+  // 5b. Apply git branch updates from JSONL message lines (pre-extracted above)
+  applySessionGitBranchUpdates(store, gitBranchUpdates);
 
   // 6. Update session status from last message
   updateSessionStatus(store, rawEnvelopes);
@@ -805,6 +816,19 @@ function applySessionNameUpdates(store: Store, updates: SessionNameUpdate[]): vo
   store.transaction(() => {
     for (const { sessionId, name } of updates) {
       store.setPartialRow('sessions', sessionId, { name });
+    }
+  });
+}
+
+/**
+ * Apply git branch updates from JSONL message lines.
+ */
+function applySessionGitBranchUpdates(store: Store, updates: SessionGitBranchUpdate[]): void {
+  if (updates.length === 0) return;
+
+  store.transaction(() => {
+    for (const { sessionId, gitBranch } of updates) {
+      store.setPartialRow('sessions', sessionId, { git_branch: gitBranch });
     }
   });
 }

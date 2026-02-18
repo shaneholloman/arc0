@@ -2,7 +2,7 @@ import { Text } from '@/components/ui/text';
 import { Icon } from '@/components/ui/icon';
 import type { Session } from '@/lib/types/session';
 import { View } from 'react-native';
-import { Folder } from 'lucide-react-native';
+import { Folder, GitBranchIcon } from 'lucide-react-native';
 import { ProviderIcon } from './ProviderIcon';
 import { truncatePath } from '@/lib/utils/path';
 import { formatFirstMessageForDisplay } from '@/lib/utils/session-display';
@@ -60,13 +60,20 @@ export function SessionInfo({ session, size = 'default', context = 'list' }: Ses
           {displayName}
         </Text>
 
-        {/* Status text · project path (second line) */}
+        {/* Status text, branch, project path (second line) */}
         <View className="-mt-0.5 flex-row items-center">
           <Text className={`font-mono text-xs ${colors.text}`}>
             {showTime ? timeAgo : statusInfo.label}
           </Text>
-          <Text className="text-muted-foreground mx-1.5 text-xs">·</Text>
-          <Icon as={Folder} className="text-muted-foreground size-3" />
+          {session.gitBranch && (
+            <View className="bg-muted ml-1.5 flex-row items-center gap-0.5 rounded-sm px-1 py-px">
+              <Icon as={GitBranchIcon} className="text-muted-foreground size-3" />
+              <Text className="text-muted-foreground font-mono text-xs" numberOfLines={1}>
+                {session.gitBranch}
+              </Text>
+            </View>
+          )}
+          <Icon as={Folder} className="text-muted-foreground ml-1.5 size-3" />
           <Text className="text-muted-foreground ml-1 flex-1 font-mono text-xs" numberOfLines={1}>
             {truncatePath(session.projectName, pathMaxLength)}
           </Text>
