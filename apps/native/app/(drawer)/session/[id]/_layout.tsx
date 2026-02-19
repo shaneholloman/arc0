@@ -20,7 +20,7 @@ function SessionHeader() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isPersistent } = useResponsiveDrawer();
+  const { isPersistent, isWeb } = useResponsiveDrawer();
   const { isReady } = useStoreContext();
 
   // Get session data from TinyBase store
@@ -39,7 +39,7 @@ function SessionHeader() {
       className="border-border bg-background flex-row items-center gap-3 border-b px-4"
       style={{
         paddingTop: Math.max(insets.top, 12),
-        paddingBottom: 14,
+        paddingBottom: 12,
       }}>
       {!isPersistent && (
         <Pressable
@@ -49,18 +49,20 @@ function SessionHeader() {
         </Pressable>
       )}
 
-      {session ? (
-        <SessionInfo session={session} context="header" />
-      ) : (
-        <View className="flex-1">
-          <Text className="font-semibold" numberOfLines={1}>
-            {id ? `Session ${id.slice(0, 8)}` : 'Unknown Session'}
-          </Text>
-          <Text className="text-muted-foreground text-xs" numberOfLines={1}>
-            {statusText}
-          </Text>
-        </View>
-      )}
+      <View className="flex-1 justify-center" style={{ height: isWeb ? 36 : 30, overflow: 'hidden' }}>
+        {session ? (
+          <SessionInfo session={session} context="header" />
+        ) : (
+          <View>
+            <Text className="font-semibold" numberOfLines={1}>
+              {id ? `Session ${id.slice(0, 8)}` : 'Unknown Session'}
+            </Text>
+            <Text className="text-muted-foreground text-xs" numberOfLines={1}>
+              {statusText}
+            </Text>
+          </View>
+        )}
+      </View>
     </View>
   );
 }
