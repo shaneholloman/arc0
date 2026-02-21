@@ -436,6 +436,15 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
           authToken: authToken ?? undefined,
           encryptionKey: encryptionKey ?? undefined,
         });
+      } else if (!wasEnabled && newEnabled && newUrl) {
+        // Re-enabled: connect with stored credentials
+        const authToken = await getWorkstationSecret(id);
+        const encryptionKey = await getWorkstationEncryptionKey(id);
+        if (!isActiveRef.current) return;
+        manager.connect(id, newUrl, {
+          authToken: authToken ?? undefined,
+          encryptionKey: encryptionKey ?? undefined,
+        });
       }
 
       console.log(`[SocketProvider] Updated workstation ${id}`);
@@ -621,23 +630,6 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
     if (previousIds.length === 0 && !hasAttemptedRef.current) {
       workstationIdsRef.current = currentIds;
       return;
-    }
-
-    // Check for newly enabled workstations
-    for (const id of currentIds) {
-      const row = workstationsTable[id];
-      if (row.enabled === 1 && row.url && !manager.isConnected(id)) {
-        // New or newly enabled workstation - connect
-        Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
-          ([authToken, encryptionKey]) => {
-            if (!isActiveRef.current) return;
-            manager.connect(id, row.url!, {
-              authToken: authToken ?? undefined,
-              encryptionKey: encryptionKey ?? undefined,
-            });
-          }
-        );
-      }
     }
 
     // Check for removed workstations
