@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, Platform, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { Portal } from '@rn-primitives/portal';
 import { XIcon } from 'lucide-react-native';
 import { useUniwind } from 'uniwind';
-import { useRow, useValue } from 'tinybase/ui-react';
+import { useRow, useTable, useValue } from 'tinybase/ui-react';
 import type { ProviderId as TypesProviderId } from '@arc0/types';
 
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,8 @@ interface CreateSessionModalProps {
   onClose: () => void;
   /** Optional project ID to pre-select when opening the modal */
   defaultProjectId?: string;
+  /** Called when the newly created session appears in TinyBase */
+  onSessionCreated?: (sessionId: string) => void;
 }
 
 /**
@@ -61,6 +63,7 @@ export function CreateSessionModal({
   visible,
   onClose,
   defaultProjectId,
+  onSessionCreated,
 }: CreateSessionModalProps) {
   const { theme } = useUniwind();
   const colors = THEME[theme ?? 'light'];
@@ -71,11 +74,65 @@ export function CreateSessionModal({
     { value: string; label: string } | undefined
   >(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [pendingNav, setPendingNav] = useState(false);
+  const knownSessionIdsRef = useRef<Set<string> | null>(null);
+  const expectedSessionIdRef = useRef<string | null>(null);
 
   const activeWorkstationId = useActiveWorkstationId();
   const projects = useWorkstationProjects(activeWorkstationId);
   const { openSession, actionStates } = useUserActions();
   const isLoading = actionStates.openSession.isLoading;
+  const isBusy = isLoading || pendingNav;
+
+  // Watch sessions table for newly created session
+  const sessionsTable = useTable('sessions') as Record<
+    string,
+    { workstation_id?: string; open?: number }
+  >;
+
+  const finishWithSession = (sessionId: string) => {
+    knownSessionIdsRef.current = null;
+    expectedSessionIdRef.current = null;
+    setPendingNav(false);
+    onClose();
+    resetForm();
+    onSessionCreated?.(sessionId);
+  };
+
+  useEffect(() => {
+    if (!pendingNav) return;
+
+    // Prefer the exact sessionId returned by the ack
+    if (expectedSessionIdRef.current && sessionsTable[expectedSessionIdRef.current]) {
+      finishWithSession(expectedSessionIdRef.current);
+      return;
+    }
+
+    // Fallback: scan for any new session (covers servers that don't return sessionId)
+    if (!knownSessionIdsRef.current) return;
+    const newId = Object.keys(sessionsTable).find((id) => {
+      if (knownSessionIdsRef.current!.has(id)) return false;
+      const row = sessionsTable[id];
+      return row.workstation_id === activeWorkstationId && row.open === 1;
+    });
+
+    if (newId) {
+      finishWithSession(newId);
+    }
+  }, [sessionsTable, pendingNav, activeWorkstationId, onSessionCreated, onClose]);
+
+  // Timeout fallback: if session never appears, close after 15s
+  useEffect(() => {
+    if (!pendingNav) return;
+    const timer = setTimeout(() => {
+      knownSessionIdsRef.current = null;
+      expectedSessionIdRef.current = null;
+      setPendingNav(false);
+      onClose();
+      resetForm();
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, [pendingNav]);
 
   // Get active session's project to use as default
   const activeSessionId = useValue('active_session_id') as string | undefined;
@@ -143,21 +200,29 @@ export function CreateSessionModal({
     console.log('Submitting openSession:', JSON.stringify(payload, null, 2));
 
     try {
+      // Snapshot current session IDs before the request
+      knownSessionIdsRef.current = new Set(Object.keys(sessionsTable));
       const result = await openSession(payload.provider, payload.cwd, payload.name);
 
       if (result.status === 'success') {
-        onClose();
-        resetForm();
+        // Store the sessionId from the ack when available
+        if (result.sessionId) {
+          expectedSessionIdRef.current = result.sessionId;
+        }
+        // Don't close yet — wait for session to appear in TinyBase
+        setPendingNav(true);
       } else {
+        knownSessionIdsRef.current = null;
         setError(result.message);
       }
     } catch (err) {
+      knownSessionIdsRef.current = null;
       setError(err instanceof Error ? err.message : 'Failed to create session');
     }
   };
 
   const handleClose = () => {
-    if (isLoading) return; // Don't close while loading
+    if (isBusy) return; // Don't close while loading or waiting for session
     onClose();
     resetForm();
   };
@@ -170,7 +235,7 @@ export function CreateSessionModal({
       <Pressable
         className="absolute inset-0 bg-black/50"
         onPress={handleClose}
-        disabled={isLoading}
+        disabled={isBusy}
         accessibilityRole="button"
         accessibilityLabel="Close modal"
       />
@@ -184,7 +249,7 @@ export function CreateSessionModal({
             <Text className="text-lg font-semibold">New Session</Text>
             <Pressable
               onPress={handleClose}
-              disabled={isLoading}
+              disabled={isBusy}
               className="active:bg-accent rounded-lg p-2 disabled:opacity-50"
               accessibilityRole="button"
               accessibilityLabel="Close">
@@ -205,10 +270,10 @@ export function CreateSessionModal({
                 {PROVIDER_OPTIONS.map((option) => (
                   <Pressable
                     key={option.value}
-                    onPress={() => !isLoading && setProvider(option.value)}
-                    disabled={isLoading}
+                    onPress={() => !isBusy && setProvider(option.value)}
+                    disabled={isBusy}
                     className="flex-row items-center gap-3 py-2 disabled:opacity-50">
-                    <RadioGroupItem value={option.value} disabled={isLoading} />
+                    <RadioGroupItem value={option.value} disabled={isBusy} />
                     <ProviderIcon providerId={option.value} size={20} showBackground={false} />
                     <Text className="text-foreground">{option.label}</Text>
                   </Pressable>
@@ -223,7 +288,7 @@ export function CreateSessionModal({
                   Project
                 </Text>
                 <Select value={selectedProject} onValueChange={setSelectedProject}>
-                  <SelectTrigger disabled={isLoading} className="w-full">
+                  <SelectTrigger disabled={isBusy} className="w-full">
                     <SelectValue
                       placeholder="Select a project"
                       style={!selectedProject ? { color: colors.mutedForeground } : undefined}
@@ -255,7 +320,7 @@ export function CreateSessionModal({
                 placeholderTextColor={colors.mutedForeground}
                 value={sessionName}
                 onChangeText={setSessionName}
-                editable={!isLoading}
+                editable={!isBusy}
                 className="border-border bg-background text-foreground rounded-lg border px-4 py-3"
               />
             </View>
@@ -268,8 +333,8 @@ export function CreateSessionModal({
             )}
 
             {/* Submit Button */}
-            <Button onPress={handleSubmit} disabled={isLoading} className="mt-2">
-              {isLoading ? (
+            <Button onPress={handleSubmit} disabled={isBusy} className="mt-2">
+              {isBusy ? (
                 <View className="flex-row items-center gap-2">
                   <ActivityIndicator size="small" color="white" />
                   <Text className="text-primary-foreground">Creating...</Text>

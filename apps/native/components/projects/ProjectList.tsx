@@ -10,6 +10,7 @@ import { ProjectItem } from './ProjectItem';
 interface ProjectListProps {
   selectedSessionId?: string;
   onSessionPress?: () => void;
+  onSessionCreated?: (sessionId: string) => void;
 }
 
 interface GroupedProject {
@@ -22,7 +23,11 @@ interface GroupedProject {
 /**
  * Groups open sessions by project and renders collapsible project items.
  */
-export function ProjectList({ selectedSessionId, onSessionPress }: ProjectListProps) {
+export function ProjectList({
+  selectedSessionId,
+  onSessionPress,
+  onSessionCreated,
+}: ProjectListProps) {
   const openSessions = useOpenSessions();
   const projects = useProjects();
 
@@ -143,6 +148,7 @@ export function ProjectList({ selectedSessionId, onSessionPress }: ProjectListPr
         visible={showCreateSession}
         onClose={handleCloseModal}
         defaultProjectId={createSessionProjectId}
+        onSessionCreated={onSessionCreated}
       />
     </>
   );

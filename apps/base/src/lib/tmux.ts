@@ -7,6 +7,40 @@ import { promisify } from "node:util";
 
 const execAsync = promisify(exec);
 
+// =============================================================================
+// Per-pane mutex
+// =============================================================================
+// Multiple socket events (e.g. rapid sendPrompt calls) can invoke sendToPane
+// concurrently for the same pane. Without serialization the two execAsync calls
+// inside sendToPane (send text, then send Enter) interleave across callers:
+//
+//   Call 1: send-keys -l "text1"  →  Call 2: send-keys -l "text2"  →  Enter  →  Enter
+//
+// This concatenates both texts into one prompt. A per-pane promise chain
+// guarantees each (text + Enter) pair completes atomically before the next
+// caller starts.
+const paneLocks = new Map<string, Promise<void>>();
+
+function withPaneLock<T>(target: string, fn: () => Promise<T>): Promise<T> {
+  const prev = paneLocks.get(target) ?? Promise.resolve();
+  const next = prev.then(fn, fn); // run fn regardless of prior rejection
+  // Store the void tail so the chain keeps growing but doesn't retain results.
+  paneLocks.set(
+    target,
+    next.then(
+      () => {},
+      () => {},
+    ),
+  );
+  return next;
+}
+
+// Small delay before sending Enter after text. tmux's assume-paste-time (1ms
+// default) groups rapid keystrokes into a bracketed paste for the application.
+// Waiting a beat ensures the text has been fully delivered as a paste before
+// Enter arrives as a discrete keypress.
+const ENTER_DELAY_MS = 100;
+
 /**
  * Find a tmux pane by its TTY device.
  * @param tty The TTY device path (e.g., /dev/ttys001)
@@ -37,6 +71,10 @@ export async function findPaneByTty(tty: string): Promise<string | null> {
 
 /**
  * Send text to a tmux pane.
+ *
+ * Serialized per-pane via mutex so concurrent callers don't interleave their
+ * keystrokes (see paneLocks above).
+ *
  * @param target The tmux target (e.g., "main:0.1")
  * @param message The message to send
  * @param pressEnter Whether to press Enter after the message (default: true)
@@ -46,25 +84,34 @@ export async function sendToPane(
   message: string,
   pressEnter: boolean = true,
 ): Promise<boolean> {
-  try {
-    // Send the message text literally
-    await execAsync(
-      `tmux send-keys -t ${target} -l ${JSON.stringify(message)}`,
-    );
+  return withPaneLock(target, async () => {
+    try {
+      // Send the message text literally
+      await execAsync(
+        `tmux send-keys -t ${target} -l ${JSON.stringify(message)}`,
+      );
 
-    if (pressEnter) {
-      await execAsync(`tmux send-keys -t ${target} Enter`);
+      if (pressEnter) {
+        // Brief pause so the application processes the pasted text before
+        // receiving Enter as a separate keypress.
+        await new Promise((r) => setTimeout(r, ENTER_DELAY_MS));
+        await execAsync(`tmux send-keys -t ${target} Enter`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("[tmux] Failed to send to pane:", error);
+      return false;
     }
-
-    return true;
-  } catch (error) {
-    console.error("[tmux] Failed to send to pane:", error);
-    return false;
-  }
+  });
 }
 
 /**
  * Send a special key to a tmux pane.
+ *
+ * Serialized via the same per-pane mutex as sendToPane so a key press
+ * (e.g. Escape for stopAgent) doesn't land in the middle of a text+Enter pair.
+ *
  * @param target The tmux target (e.g., "main:0.1")
  * @param key The key to send (e.g., "Escape", "Enter")
  */
@@ -72,13 +119,15 @@ export async function sendKeyToPane(
   target: string,
   key: string,
 ): Promise<boolean> {
-  try {
-    await execAsync(`tmux send-keys -t ${target} ${key}`);
-    return true;
-  } catch (error) {
-    console.error("[tmux] Failed to send key to pane:", error);
-    return false;
-  }
+  return withPaneLock(target, async () => {
+    try {
+      await execAsync(`tmux send-keys -t ${target} ${key}`);
+      return true;
+    } catch (error) {
+      console.error("[tmux] Failed to send key to pane:", error);
+      return false;
+    }
+  });
 }
 
 // =============================================================================

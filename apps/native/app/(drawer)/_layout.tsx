@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Text } from '@/components/ui/text';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -81,6 +81,17 @@ function DrawerContent(
       props.navigation.closeDrawer();
     }
   };
+
+  const handleSessionCreated = useCallback(
+    (sessionId: string) => {
+      setShowCreateSession(false);
+      if (!isPersistent) {
+        props.navigation.closeDrawer();
+      }
+      router.push({ pathname: '/session/[id]/chat', params: { id: sessionId } });
+    },
+    [isPersistent, props.navigation, router]
+  );
 
   const handleSettingsPress = () => {
     if (!isPersistent) {
@@ -172,7 +183,11 @@ function DrawerContent(
             onSessionPress={handleSessionPress}
           />
         ) : (
-          <ProjectList selectedSessionId={selectedSessionId} onSessionPress={handleSessionPress} />
+          <ProjectList
+            selectedSessionId={selectedSessionId}
+            onSessionPress={handleSessionPress}
+            onSessionCreated={handleSessionCreated}
+          />
         )}
       </View>
 
@@ -212,7 +227,11 @@ function DrawerContent(
         </View>
       </View>
 
-      <CreateSessionModal visible={showCreateSession} onClose={() => setShowCreateSession(false)} />
+      <CreateSessionModal
+        visible={showCreateSession}
+        onClose={() => setShowCreateSession(false)}
+        onSessionCreated={handleSessionCreated}
+      />
       <ConnectionStatusModal
         visible={showConnectionStatus}
         onClose={() => setShowConnectionStatus(false)}
