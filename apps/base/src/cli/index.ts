@@ -93,7 +93,7 @@ ${pc.bold("COMMANDS")}
   install     Enable auto-start on login (macOS)
   uninstall   Disable auto-start
   hooks       Manage provider hooks (install/uninstall/status)
-  auth        Authentication (login/logout/secret)
+  auth        Arc0 authentication (login/logout/status)
   tunnel      Tunnel status and logs
 
 ${pc.bold("OPTIONS")}
@@ -156,7 +156,7 @@ async function interactiveMode() {
       {
         value: "auth",
         label: "Auth",
-        hint: "Manage mobile app authentication",
+        hint: "Manage Arc0 account authentication",
       },
       { value: "tunnel", label: "Tunnel", hint: "Manage Arc0 tunnel" },
     ],
@@ -260,7 +260,7 @@ async function main() {
       await hooksCommand(flags[0]); // Pass subcommand: install/uninstall/status
       break;
     case "auth":
-      await authCommand(flags[0]); // Pass subcommand: qr/secret/regenerate
+      await authCommand(flags[0]); // Pass subcommand: login/logout/status
       break;
     case "tunnel":
       await tunnelCommand(flags[0]); // Pass subcommand: status/login/logout/logs

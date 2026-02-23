@@ -22,7 +22,7 @@ import type {
   SessionData,
   SessionsSyncPayload,
 } from "../lib/types.js";
-import { safeCompare } from "../lib/credentials.js";
+
 import { validateClient, touchClient, getClient } from "../lib/clients.js";
 import { pairingManager } from "./pairing.js";
 import {
@@ -42,9 +42,6 @@ import type { ServerStatus } from "./types.js";
 
 export interface SocketServerOptions {
   workstationId: string;
-  secret?: string;
-  /** If true, require per-client token auth instead of shared secret */
-  useClientAuth?: boolean;
   onConnect?: () => void;
   onInit?: (socketId: string, payload: InitPayload) => void | Promise<void>;
   actionHandlers?: ActionHandlers;
@@ -64,8 +61,6 @@ export class SocketServer {
   ) => void | Promise<void>;
   private currentSessions: SessionData[] = [];
   private workstationId: string;
-  private secret?: string;
-  private useClientAuth: boolean;
   private actionHandlers?: ActionHandlers;
   private _port = 0;
   private messageQueue: MessageQueueManager;
@@ -74,8 +69,6 @@ export class SocketServer {
     this.workstationId = options.workstationId;
     this.onConnectCallback = options.onConnect;
     this.onInitCallback = options.onInit;
-    this.secret = options.secret;
-    this.useClientAuth = options.useClientAuth ?? false;
     this.actionHandlers = options.actionHandlers;
 
     // Initialize message queue for flow control
@@ -134,47 +127,24 @@ export class SocketServer {
     // Auth middleware - allow all connections initially, but track authenticated ones
     this.io.use((socket, next) => {
       const auth = socket.handshake.auth;
+      const deviceId = auth?.deviceId;
+      const authToken = auth?.authToken;
 
-      // Check for per-client token auth (new E2E encryption mode)
-      if (this.useClientAuth) {
-        const deviceId = auth?.deviceId;
-        const authToken = auth?.authToken;
-
-        if (typeof deviceId === "string" && typeof authToken === "string") {
-          if (validateClient(deviceId, authToken)) {
-            (
-              socket as Socket & { authenticated: boolean; deviceId: string }
-            ).authenticated = true;
-            (socket as Socket & { deviceId: string }).deviceId = deviceId;
-            touchClient(deviceId);
-            console.log(`[socket] Authenticated client: ${deviceId}`);
-            next();
-            return;
-          }
-        }
-
-        // Allow unauthenticated for pairing
-        (socket as Socket & { authenticated: boolean }).authenticated = false;
-        next();
-        return;
-      }
-
-      // Legacy: shared secret auth
-      if (this.secret) {
-        const clientSecret = auth?.secret;
-        if (
-          typeof clientSecret === "string" &&
-          safeCompare(clientSecret, this.secret)
-        ) {
-          (socket as Socket & { authenticated: boolean }).authenticated = true;
+      if (typeof deviceId === "string" && typeof authToken === "string") {
+        if (validateClient(deviceId, authToken)) {
+          (
+            socket as Socket & { authenticated: boolean; deviceId: string }
+          ).authenticated = true;
+          (socket as Socket & { deviceId: string }).deviceId = deviceId;
+          touchClient(deviceId);
+          console.log(`[socket] Authenticated client: ${deviceId}`);
           next();
           return;
         }
       }
 
-      // No auth configured or pairing mode - allow connection
-      (socket as Socket & { authenticated: boolean }).authenticated =
-        !this.secret && !this.useClientAuth;
+      // Allow unauthenticated for pairing
+      (socket as Socket & { authenticated: boolean }).authenticated = false;
       next();
     });
 
@@ -191,8 +161,8 @@ export class SocketServer {
       if (isAuthenticated) {
         this.authenticatedSockets.add(socket.id);
 
-        // Register encryption context if using per-client auth
-        if (this.useClientAuth && deviceId) {
+        // Register encryption context for paired client
+        if (deviceId) {
           const client = getClient(deviceId);
           if (client?.encryptionKey) {
             const keyBytes = base64ToUint8Array(client.encryptionKey);
@@ -327,7 +297,7 @@ export class SocketServer {
     }
 
     const handlers = this.actionHandlers;
-    const useEncryption = this.useClientAuth && hasEncryptionContext(socket.id);
+    const useEncryption = hasEncryptionContext(socket.id);
 
     // Helper to decrypt incoming payload if encrypted
     const decryptPayload = <T>(payload: unknown): T | null => {
@@ -337,7 +307,7 @@ export class SocketServer {
       if (isEncryptedEnvelope(payload)) {
         return decryptFromClient<T>(socket.id, payload);
       }
-      // Not encrypted - might be legacy client
+      // Plain payload (encryption context exists but payload may be unencrypted)
       return payload as T;
     };
 
@@ -492,7 +462,7 @@ export class SocketServer {
       onAck();
     };
 
-    if (encrypted && this.useClientAuth && hasEncryptionContext(socketId)) {
+    if (encrypted && hasEncryptionContext(socketId)) {
       const encryptedPayload = encryptForClient(socketId, payload);
       if (encryptedPayload) {
         socket.emit("messages", encryptedPayload, updateLastAck);
@@ -523,7 +493,7 @@ export class SocketServer {
       const socket = this.io.sockets.sockets.get(socketId);
       if (!socket) continue;
 
-      if (this.useClientAuth && hasEncryptionContext(socketId)) {
+      if (hasEncryptionContext(socketId)) {
         const encrypted = encryptForClient(socketId, payload);
         if (encrypted) {
           socket.emit("sessions", encrypted);
@@ -547,7 +517,7 @@ export class SocketServer {
       const socket = this.io.sockets.sockets.get(socketId);
       if (!socket) continue;
 
-      if (this.useClientAuth && hasEncryptionContext(socketId)) {
+      if (hasEncryptionContext(socketId)) {
         const encrypted = encryptForClient(socketId, payload);
         if (encrypted) {
           socket.emit("projects", encrypted);
@@ -572,7 +542,7 @@ export class SocketServer {
     const socket = this.io.sockets.sockets.get(socketId);
     if (!socket || !this.authenticatedSockets.has(socketId)) return;
 
-    if (this.useClientAuth && hasEncryptionContext(socketId)) {
+    if (hasEncryptionContext(socketId)) {
       const encrypted = encryptForClient(socketId, payload);
       if (encrypted) {
         socket.emit("sessions", encrypted);
@@ -596,7 +566,7 @@ export class SocketServer {
     const socket = this.io.sockets.sockets.get(socketId);
     if (!socket || !this.authenticatedSockets.has(socketId)) return;
 
-    if (this.useClientAuth && hasEncryptionContext(socketId)) {
+    if (hasEncryptionContext(socketId)) {
       const encrypted = encryptForClient(socketId, payload);
       if (encrypted) {
         socket.emit("projects", encrypted);
@@ -621,7 +591,7 @@ export class SocketServer {
       const socket = this.io.sockets.sockets.get(socketId);
       if (!socket) continue;
 
-      const encrypted = this.useClientAuth && hasEncryptionContext(socketId);
+      const encrypted = hasEncryptionContext(socketId);
       this.messageQueue.enqueue(socketId, { payload, encrypted });
     }
 
@@ -640,7 +610,7 @@ export class SocketServer {
     const socket = this.io.sockets.sockets.get(socketId);
     if (!socket) return;
 
-    const encrypted = this.useClientAuth && hasEncryptionContext(socketId);
+    const encrypted = hasEncryptionContext(socketId);
     this.messageQueue.enqueue(socketId, { payload, encrypted });
 
     console.log(
@@ -662,7 +632,7 @@ export class SocketServer {
         return;
       }
 
-      const encrypted = this.useClientAuth && hasEncryptionContext(socketId);
+      const encrypted = hasEncryptionContext(socketId);
       this.messageQueue.enqueue(socketId, { payload, encrypted, resolve });
     });
   }

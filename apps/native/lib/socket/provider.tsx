@@ -19,9 +19,9 @@ import { useStore, useTable, useValue } from 'tinybase/ui-react';
 import { generateProjectId, handleMessagesBatch, handleSessionsSync } from '../store/handlers';
 import { useStoreContext } from '../store/provider';
 import {
-  getWorkstationSecret,
-  setWorkstationSecret,
-  deleteWorkstationSecret,
+  getWorkstationAuthToken,
+  setWorkstationAuthToken,
+  deleteWorkstationAuthToken,
   setWorkstationEncryptionKey,
   deleteWorkstationEncryptionKey,
   getWorkstationEncryptionKey,
@@ -73,7 +73,7 @@ interface SocketContextValue {
   /** Update a workstation */
   updateWorkstation: (
     id: string,
-    updates: { name?: string; url?: string; secret?: string; enabled?: boolean }
+    updates: { name?: string; url?: string; enabled?: boolean }
   ) => Promise<void>;
   /** Remove a workstation */
   removeWorkstation: (id: string) => Promise<void>;
@@ -285,11 +285,12 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
 
     for (const [id, row] of Object.entries(workstationsTable)) {
       if (row.enabled === 1 && row.url) {
-        const authToken = await getWorkstationSecret(id);
+        const authToken = await getWorkstationAuthToken(id);
         const encryptionKey = await getWorkstationEncryptionKey(id);
+        if (!authToken) continue;
         if (!isActiveRef.current) return;
         manager.connect(id, row.url, {
-          authToken: authToken ?? undefined,
+          authToken,
           encryptionKey: encryptionKey ?? undefined,
         });
       }
@@ -349,8 +350,8 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
         updated_at: now,
       });
 
-      // Save auth token to SecureStore (replaces old "secret")
-      await setWorkstationSecret(workstationId, authToken);
+      // Save auth token to secure storage
+      await setWorkstationAuthToken(workstationId, authToken);
 
       // Save encryption key if provided
       if (encryptionKey) {
@@ -369,7 +370,7 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
   const updateWorkstation = useCallback(
     async (
       id: string,
-      updates: { name?: string; url?: string; secret?: string; enabled?: boolean }
+      updates: { name?: string; url?: string; enabled?: boolean }
     ): Promise<void> => {
       if (!store) throw new Error('Store not ready');
 
@@ -397,11 +398,6 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       // Update TinyBase
       store.setPartialRow('workstations', id, storeUpdates);
 
-      // Update secret if provided
-      if (updates.secret !== undefined) {
-        await setWorkstationSecret(id, updates.secret);
-      }
-
       // Handle connection changes
       const wasEnabled = existing.enabled === 1;
       const newEnabled = updates.enabled ?? wasEnabled;
@@ -428,21 +424,26 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
             );
           }
         }
-      } else if (updates.url !== undefined || updates.secret !== undefined) {
-        // Reconnect if URL or secret changed
-        const authToken = await getWorkstationSecret(id);
+      } else if (updates.url !== undefined) {
+        // Reconnect if URL changed
+        const authToken = await getWorkstationAuthToken(id);
         const encryptionKey = await getWorkstationEncryptionKey(id);
+        if (!authToken) {
+          manager.disconnect(id);
+          return;
+        }
         await manager.reconnect(id, newUrl, {
-          authToken: authToken ?? undefined,
+          authToken,
           encryptionKey: encryptionKey ?? undefined,
         });
       } else if (!wasEnabled && newEnabled && newUrl) {
         // Re-enabled: connect with stored credentials
-        const authToken = await getWorkstationSecret(id);
+        const authToken = await getWorkstationAuthToken(id);
         const encryptionKey = await getWorkstationEncryptionKey(id);
+        if (!authToken) return;
         if (!isActiveRef.current) return;
         manager.connect(id, newUrl, {
-          authToken: authToken ?? undefined,
+          authToken,
           encryptionKey: encryptionKey ?? undefined,
         });
       }
@@ -462,8 +463,8 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
       // Disconnect
       manager.disconnect(id);
 
-      // Delete secret and encryption key
-      await deleteWorkstationSecret(id);
+      // Delete auth token and encryption key
+      await deleteWorkstationAuthToken(id);
       await deleteWorkstationEncryptionKey(id);
 
       // Delete all data for this workstation (messages, sessions, projects)
@@ -601,11 +602,12 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
     // Connect to all enabled workstations
     for (const [id, row] of Object.entries(table)) {
       if (row.enabled === 1 && row.url) {
-        Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
+        Promise.all([getWorkstationAuthToken(id), getWorkstationEncryptionKey(id)]).then(
           ([authToken, encryptionKey]) => {
+            if (!authToken) return;
             if (!isActiveRef.current) return;
             manager.connect(id, row.url!, {
-              authToken: authToken ?? undefined,
+              authToken,
               encryptionKey: encryptionKey ?? undefined,
             });
           }
@@ -658,11 +660,12 @@ export function SocketProvider({ children, autoConnect = true }: SocketProviderP
           const state = manager.getConnectionState(id);
           if (row.enabled === 1 && row.url && state.status === 'disconnected') {
             console.log(`[SocketProvider] App active, reconnecting ${id}...`);
-            Promise.all([getWorkstationSecret(id), getWorkstationEncryptionKey(id)]).then(
+            Promise.all([getWorkstationAuthToken(id), getWorkstationEncryptionKey(id)]).then(
               ([authToken, encryptionKey]) => {
+                if (!authToken) return;
                 if (!isActiveRef.current) return;
                 manager.connect(id, row.url!, {
-                  authToken: authToken ?? undefined,
+                  authToken,
                   encryptionKey: encryptionKey ?? undefined,
                 });
               }

@@ -1,21 +1,13 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { CREDENTIALS_FILE } from "./config.js";
 
 export interface Credentials {
-  secret: string;
   encryptionKey: string;
   createdAt: string;
   // Arc0 tunnel auth (from better-auth device flow)
   bearerToken?: string;
   userId?: string;
-}
-
-/**
- * Generate a cryptographically secure random secret.
- */
-export function generateSecret(): string {
-  return randomBytes(32).toString("base64url");
 }
 
 /**
@@ -37,7 +29,6 @@ export function ensureCredentials(): Credentials {
   let creds = loadCredentials();
   if (!creds) {
     creds = {
-      secret: generateSecret(),
       encryptionKey: randomBytes(32).toString("hex"),
       createdAt: new Date().toISOString(),
     };
@@ -49,14 +40,6 @@ export function ensureCredentials(): Credentials {
     );
   }
   return creds;
-}
-
-/**
- * Timing-safe string comparison to prevent timing attacks.
- */
-export function safeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 
 /**

@@ -27,7 +27,7 @@ import { useStoreContext } from '@/lib/store/provider';
 import { useSocketContext } from '@/lib/socket/provider';
 import type { ThemePreference } from '@/lib/store/core';
 import { WorkstationList } from '@/components/workstations';
-import { clearAllWorkstationSecrets } from '@/lib/settings/workstations';
+import { clearAllWorkstationCredentials } from '@/lib/settings/workstations';
 
 const DEVTOOLS_ENABLED = process.env.EXPO_PUBLIC_DEVTOOLS_ENABLED === 'true';
 const WEB_STORE_FILENAME = 'arc0-store.json';
@@ -106,13 +106,13 @@ export default function SettingsScreen() {
         // Disconnect all workstations
         disconnectAll();
 
-        // Clear workstation secrets FIRST - before wiping persisted storage
+        // Clear workstation credentials FIRST - before wiping persisted storage
         // This ensures if we fail here, data is still intact for retry
         try {
-          await clearAllWorkstationSecrets(workstationIds);
+          await clearAllWorkstationCredentials(workstationIds);
         } catch (err) {
-          console.error('[reset] Failed to clear workstation secrets:', err);
-          // Continue - secrets may be orphaned but this is acceptable
+          console.error('[reset] Failed to clear workstation credentials:', err);
+          // Continue - credentials may be orphaned but this is acceptable
         }
 
         if (Platform.OS === 'web') {

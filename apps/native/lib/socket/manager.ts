@@ -2,7 +2,7 @@
  * SocketManager: Central coordinator for multiple workstation connections.
  * Manages a Map of workstation ID -> Socket connection.
  *
- * Supports both legacy (shared secret) and E2E encrypted modes.
+ * Uses per-device auth tokens and optional E2E encryption.
  *
  * Uses useSyncExternalStore pattern for React integration.
  */
@@ -38,11 +38,9 @@ export type AppSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 export interface WorkstationCredentials {
   /** Auth token for socket authentication (base64) */
-  authToken?: string;
+  authToken: string;
   /** Encryption key for E2E encryption (base64) */
   encryptionKey?: string;
-  /** Legacy: shared secret */
-  secret?: string;
 }
 
 export interface WorkstationConnection {
@@ -89,13 +87,13 @@ export class SocketManager {
 
   /**
    * Connect to a workstation with credentials.
-   * Supports both legacy (shared secret) and new E2E encrypted modes.
+   * Uses per-device token auth and optional E2E encryption.
    *
    * @param workstationId - Unique identifier for the workstation
    * @param url - Socket.IO server URL
-   * @param credentials - Auth credentials (secret, authToken, or encryptionKey)
+   * @param credentials - Auth token and optional encryption key
    */
-  connect(workstationId: string, url: string, credentials?: WorkstationCredentials): void {
+  connect(workstationId: string, url: string, credentials: WorkstationCredentials): void {
     // Check if already connected
     const existing = this.connections.get(workstationId);
     if (existing?.socket?.connected) {
@@ -127,14 +125,6 @@ export class SocketManager {
 
     this.connections.set(workstationId, { socket, state, url, encryptionCtx });
     this.notifyListeners();
-  }
-
-  /**
-   * Legacy connect method for backward compatibility.
-   * @deprecated Use connect(workstationId, url, { secret }) instead
-   */
-  connectLegacy(workstationId: string, url: string, secret?: string): void {
-    this.connect(workstationId, url, secret ? { secret } : undefined);
   }
 
   /**
@@ -171,7 +161,7 @@ export class SocketManager {
   async reconnect(
     workstationId: string,
     url: string,
-    credentials?: WorkstationCredentials
+    credentials: WorkstationCredentials
   ): Promise<void> {
     this.disconnect(workstationId);
     // Small delay to ensure clean disconnect
@@ -314,21 +304,17 @@ export class SocketManager {
   private createSocket(
     workstationId: string,
     url: string,
-    credentials?: WorkstationCredentials,
+    credentials: WorkstationCredentials,
     encryptionCtx?: EncryptionContext
   ): AppSocket {
-    // Build auth object based on credentials
-    let auth: Record<string, string> | undefined;
-    if (credentials?.authToken && this.handlers) {
-      // New E2E encrypted mode with per-client token
-      auth = {
-        deviceId: this.handlers.getDeviceId(),
-        authToken: credentials.authToken,
-      };
-    } else if (credentials?.secret) {
-      // Legacy shared secret mode
-      auth = { secret: credentials.secret };
+    if (!this.handlers) {
+      throw new Error('Socket handlers must be registered before connecting');
     }
+
+    const auth = {
+      deviceId: this.handlers.getDeviceId(),
+      authToken: credentials.authToken,
+    };
 
     const socket = io(url, {
       transports: ['websocket'],
@@ -337,7 +323,7 @@ export class SocketManager {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 4000,
       path: '/socket.io',
-      ...(auth && { auth }),
+      auth,
     }) as AppSocket;
 
     // Connection events

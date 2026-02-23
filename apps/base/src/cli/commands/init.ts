@@ -60,7 +60,7 @@ export async function initCommand(): Promise<void> {
 
   p.log.success(`Configuration saved to ${CONFIG_FILE}`);
 
-  // Generate credentials (secret + encryption key) with secure permissions
+  // Generate credentials (encryption key + metadata) with secure permissions
   ensureCredentials();
 
   // Setup tunnel (modifies config.tunnel)

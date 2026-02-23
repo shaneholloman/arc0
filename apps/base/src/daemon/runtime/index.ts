@@ -10,7 +10,7 @@ import {
   VERSION,
   writeDaemonState,
 } from "../../lib/index.js";
-import { loadClientStore } from "../../lib/clients.js";
+
 import { ControlServer, SocketServer } from "../../socket/server.js";
 import { createActionHandlers } from "../../socket/actions.js";
 import { jsonlWatcher } from "../../transcript/index.js";
@@ -40,9 +40,9 @@ async function main() {
   const { workstationId } = config;
   console.log(`[daemon] Workstation: ${workstationId}`);
 
-  // Ensure credentials exist (generates secret on first run)
-  const credentials = ensureCredentials();
-  console.log(`[daemon] Secret loaded (share with mobile app to connect)`);
+  // Ensure credentials exist (generates keys on first run)
+  ensureCredentials();
+  console.log(`[daemon] Credentials loaded`);
 
   // Acquire exclusive lock (handles crash recovery automatically)
   const releaseLock = await acquireDaemonLock();
@@ -111,22 +111,9 @@ async function main() {
     },
   });
 
-  // Check if there are any registered clients (from pairing)
-  const clientStore = loadClientStore();
-  const hasRegisteredClients = Object.keys(clientStore.clients).length > 0;
-
-  if (hasRegisteredClients) {
-    console.log(
-      `[daemon] Found ${Object.keys(clientStore.clients).length} paired client(s), enabling per-client auth`,
-    );
-  }
-
   // Create socket server (all interfaces, for mobile via tunnel)
   const socketServer = new SocketServer({
     workstationId,
-    secret: credentials.secret,
-    // Enable per-client auth if there are paired clients
-    useClientAuth: hasRegisteredClients,
     actionHandlers,
     onConnect: () => {
       // Client will send init, we respond there with proper ordering
