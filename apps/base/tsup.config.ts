@@ -10,6 +10,7 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   shims: true,
+  noExternal: ["@arc0/crypto", "@arc0/types"],
   banner: {
     js: "#!/usr/bin/env node",
   },

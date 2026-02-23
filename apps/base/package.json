@@ -2,10 +2,16 @@
   "name": "@arc0/base",
   "version": "0.1.0",
   "type": "module",
+  "publishConfig": {
+    "name": "arc0"
+  },
   "bin": {
     "arc0": "./dist/cli.js",
     "arc0-daemon": "./dist/daemon.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "tsx watch src/daemon/index.ts",
     "cli": "tsx src/cli/index.ts",
