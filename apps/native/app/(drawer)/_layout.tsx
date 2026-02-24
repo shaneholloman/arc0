@@ -121,28 +121,32 @@ function DrawerContent(
             />
           </View>
           <View className="flex-row items-center gap-1">
-            <Pressable
-              testID="connection-indicator"
-              className="flex-row items-center active:opacity-70"
-              onPress={() => setShowConnectionStatus(true)}>
-              <View className="p-2">
-                <FontAwesome6
-                  name={syncStatus === 'connected' ? 'plug-circle-check' : 'plug-circle-xmark'}
-                  size={18}
-                  color={
-                    syncStatus === 'connected'
-                      ? '#22c55e' // green
-                      : syncStatus === 'connecting'
-                        ? '#f59e0b' // amber
-                        : '#ef4444' // red
-                  }
-                />
-              </View>
-              {/* Show syncing badge when other workstations are connected */}
-              {backgroundConnectedCount > 0 && (
-                <Text className="text-muted-foreground text-xs">(+{backgroundConnectedCount})</Text>
-              )}
-            </Pressable>
+            {!hasNoWorkstations && (
+              <Pressable
+                testID="connection-indicator"
+                className="flex-row items-center active:opacity-70"
+                onPress={() => setShowConnectionStatus(true)}>
+                <View className="p-2">
+                  <FontAwesome6
+                    name={syncStatus === 'connected' ? 'plug-circle-check' : 'plug-circle-xmark'}
+                    size={18}
+                    color={
+                      syncStatus === 'connected'
+                        ? '#22c55e' // green
+                        : syncStatus === 'connecting'
+                          ? '#f59e0b' // amber
+                          : '#ef4444' // red
+                    }
+                  />
+                </View>
+                {/* Show syncing badge when other workstations are connected */}
+                {backgroundConnectedCount > 0 && (
+                  <Text className="text-muted-foreground text-xs">
+                    (+{backgroundConnectedCount})
+                  </Text>
+                )}
+              </Pressable>
+            )}
             {!isPersistent && (!isOnIndex || selectedSessionId) && (
               <Pressable onPress={handleCloseDrawer} className="active:bg-accent rounded-lg p-2">
                 <Icon as={XIcon} className="text-muted-foreground size-5" />

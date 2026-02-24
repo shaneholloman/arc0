@@ -18,7 +18,8 @@ type BannerType = 'error' | 'success' | null;
  * A compact banner that briefly shows connection status.
  * - Error: Triggered when app comes to foreground while disconnected
  * - Success: Shown briefly when connection is established
- * The plug icon in the header shows persistent status.
+ * Persistent status is shown via the drawer header connection indicator
+ * when at least one workstation is configured.
  */
 export function ConnectionBanner() {
   const insets = useSafeAreaInsets();
