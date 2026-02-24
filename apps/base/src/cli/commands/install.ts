@@ -4,13 +4,18 @@ import { execSync } from "node:child_process";
 import { homedir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { IS_DEV, CONFIG_DIR } from "../../lib/config.js";
+import { RUNTIME_MODE, CONFIG_DIR } from "../../lib/config.js";
 import { isCompiledBinary } from "../../lib/runtime.js";
 
 // Get the directory containing node executable
 const NODE_BIN_DIR = dirname(process.execPath);
 
-const LABEL = IS_DEV ? "com.arc0.daemon.dev" : "com.arc0.daemon";
+const LABEL =
+  RUNTIME_MODE === "production"
+    ? "com.arc0.daemon"
+    : RUNTIME_MODE === "test"
+      ? "com.arc0.daemon.test"
+      : "com.arc0.daemon.dev";
 const LAUNCH_AGENTS_DIR = join(homedir(), "Library", "LaunchAgents");
 const PLIST_PATH = join(LAUNCH_AGENTS_DIR, `${LABEL}.plist`);
 
@@ -35,7 +40,7 @@ export function isLaunchAgentLoaded(): boolean {
  * Generate the LaunchAgent plist content.
  */
 function generatePlist(): string {
-  const env = IS_DEV ? "development" : "production";
+  const env = RUNTIME_MODE;
   const logFile = join(CONFIG_DIR, "daemon.log");
 
   let programArgs: string;

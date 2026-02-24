@@ -5,8 +5,25 @@ import pkg from "../../package.json" with { type: "json" };
 
 export const VERSION = pkg.version;
 
-export const IS_DEV = process.env.NODE_ENV !== "production";
-const BASE_DIR_NAME = IS_DEV ? ".arc0-dev" : ".arc0";
+export type RuntimeMode = "production" | "development" | "test";
+
+function resolveRuntimeMode(): RuntimeMode {
+  const nodeEnv = process.env.NODE_ENV;
+  if (nodeEnv === "production") return "production";
+  if (nodeEnv === "test") return "test";
+  return "development";
+}
+
+export const RUNTIME_MODE = resolveRuntimeMode();
+export const IS_DEV = RUNTIME_MODE === "development";
+export const IS_TEST = RUNTIME_MODE === "test";
+
+const BASE_DIR_NAME =
+  RUNTIME_MODE === "production"
+    ? ".arc0"
+    : RUNTIME_MODE === "test"
+      ? ".arc0-test"
+      : ".arc0-dev";
 
 export const CONFIG_DIR = join(homedir(), BASE_DIR_NAME);
 export const CONFIG_FILE = join(CONFIG_DIR, "config.json");
