@@ -5,6 +5,7 @@
 
 import type { ActionResult, OpenSessionPayload, ProviderId } from "@arc0/types";
 import { exec } from "node:child_process";
+import { homedir } from "node:os";
 import { promisify } from "node:util";
 import { stat } from "node:fs/promises";
 import {
@@ -56,20 +57,28 @@ async function isProviderInstalled(provider: ProviderId): Promise<boolean> {
 export async function launchSession(
   payload: OpenSessionPayload,
 ): Promise<ActionResult> {
-  const { provider, name, cwd } = payload;
+  const { provider, name, cwd: rawCwd } = payload;
 
   console.log(
-    `[session-launcher] Launching session: provider=${provider} name=${name ?? "unnamed"} cwd=${cwd}`,
+    `[session-launcher] Launching session: provider=${provider} name=${name ?? "unnamed"} cwd=${rawCwd}`,
   );
 
   // 1. Validate cwd
-  if (!cwd || cwd.trim() === "") {
+  if (!rawCwd || rawCwd.trim() === "") {
     return {
       status: "error",
       code: "INVALID_CWD",
       message: "Working directory (cwd) is required.",
     };
   }
+
+  // Expand ~ to home directory (Node.js fs doesn't expand tilde)
+  const cwd =
+    rawCwd === "~"
+      ? homedir()
+      : rawCwd.startsWith("~/")
+        ? homedir() + rawCwd.slice(1)
+        : rawCwd;
 
   if (!(await directoryExists(cwd))) {
     return {
