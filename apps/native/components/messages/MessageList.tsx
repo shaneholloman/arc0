@@ -36,6 +36,33 @@ interface ContentBlockRendererProps {
   interactiveToolUseId: string | null;
 }
 
+/**
+ * Claude often prefixes assistant text with extra newlines.
+ * Normalize for display so bubbles don't start with blank lines.
+ */
+function normalizeTextContent(text: string, isUser: boolean): string {
+  if (isUser) return text;
+  return text.replace(/^(?:\r?\n)+/, '');
+}
+
+/**
+ * Keep only content blocks we can actually render, and suppress empty text blocks.
+ */
+function isRenderableBlock(block: ContentBlock, isUser: boolean): boolean {
+  switch (block.type) {
+    case 'tool_result':
+      return false;
+    case 'text':
+      return normalizeTextContent(block.text, isUser).trim().length > 0;
+    case 'thinking':
+    case 'tool_use':
+    case 'image':
+      return true;
+    default:
+      return false;
+  }
+}
+
 function ContentBlockRenderer({
   block,
   isUser,
@@ -46,12 +73,17 @@ function ContentBlockRenderer({
   interactiveToolUseId,
 }: ContentBlockRendererProps) {
   switch (block.type) {
-    case 'text':
+    case 'text': {
+      const text = normalizeTextContent(block.text, isUser);
+      if (text.trim().length === 0) {
+        return null;
+      }
       return isUser ? (
-        <UserMessage text={block.text} />
+        <UserMessage text={text} />
       ) : (
-        <AssistantMessage text={block.text} providerId={providerId} />
+        <AssistantMessage text={text} providerId={providerId} />
       );
+    }
     case 'thinking':
       return <ThinkingBlockDisplay thinking={block.thinking} isInProgress={isInProgress} />;
     case 'tool_use': {
@@ -152,8 +184,8 @@ const RenderableItem = React.memo(function RenderableItem({
   if (isUserOrAssistantMessage(message)) {
     const isUser = message.type === 'user';
 
-    // Filter out tool_result blocks since they're rendered with tool_use
-    const visibleBlocks = message.content.filter((block) => block.type !== 'tool_result');
+    // Filter out blocks we don't render (tool_result, whitespace-only text, unsupported types)
+    const visibleBlocks = message.content.filter((block) => isRenderableBlock(block, isUser));
 
     if (visibleBlocks.length === 0) {
       return null;
@@ -197,7 +229,7 @@ export function MessageList({ messages, providerId, interactiveToolUseId }: Mess
   // Filter messages for display:
   // - System: Only show renderable subtypes (api_error, compact_boundary, local_command)
   // - Queue operation: Always show
-  // - User/Assistant: Filter out messages with only tool_result blocks
+  // - User/Assistant: Keep only messages with at least one renderable content block
   const visibleMessages = useMemo(() => {
     return messages.filter((message) => {
       if (isSystemMessage(message)) {
@@ -210,7 +242,8 @@ export function MessageList({ messages, providerId, interactiveToolUseId }: Mess
         return true;
       }
       if (isUserOrAssistantMessage(message)) {
-        return message.content.some((block) => block.type !== 'tool_result');
+        const isUser = message.type === 'user';
+        return message.content.some((block) => isRenderableBlock(block, isUser));
       }
       return false;
     });
