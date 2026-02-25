@@ -22,6 +22,7 @@ interface SessionEntry {
   lines: StoredLine[];
   filePath: string;
   filePosition: number; // Byte position for incremental reads
+  name: string | null; // Session name from custom-title JSONL lines
 }
 
 /**
@@ -43,6 +44,7 @@ class JsonlStore {
       lines,
       filePath,
       filePosition: 0,
+      name: null,
     });
   }
 
@@ -114,8 +116,28 @@ class JsonlStore {
       return session.lines;
     }
 
-    // Filter lines with timestamp > lastMessageTs
-    return session.lines.filter((line) => line.timestamp > lastMessageTs);
+    // Filter lines with timestamp > lastMessageTs.
+    // Lines without timestamps (e.g. custom-title) are always included.
+    return session.lines.filter(
+      (line) => !line.timestamp || line.timestamp > lastMessageTs,
+    );
+  }
+
+  /**
+   * Get session name.
+   */
+  getName(sessionId: string): string | null {
+    return this.sessions.get(sessionId)?.name ?? null;
+  }
+
+  /**
+   * Set session name.
+   */
+  setName(sessionId: string, name: string): void {
+    const session = this.sessions.get(sessionId);
+    if (session) {
+      session.name = name;
+    }
   }
 
   /**

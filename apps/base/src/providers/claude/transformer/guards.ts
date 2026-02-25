@@ -60,3 +60,16 @@ export function isMetaLine(payload: unknown): boolean {
   if (!payload || typeof payload !== "object") return false;
   return (payload as { isMeta?: unknown }).isMeta === true;
 }
+
+interface RawCustomTitleLine {
+  type: "custom-title";
+  customTitle: string;
+}
+
+export function isCustomTitleLine(
+  payload: unknown,
+): payload is RawCustomTitleLine {
+  if (!payload || typeof payload !== "object") return false;
+  const p = payload as Record<string, unknown>;
+  return p.type === "custom-title" && typeof p.customTitle === "string";
+}

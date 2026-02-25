@@ -22,6 +22,14 @@ export interface PermissionRequestEvent extends BaseSessionEvent {
 }
 
 /**
+ * Session name change event - emitted when session is renamed (e.g. /rename).
+ */
+export interface SessionNameChangeEvent extends BaseSessionEvent {
+  type: "session_name_change";
+  name: string;
+}
+
+/**
  * Union of all session event types.
  */
-export type SessionEvent = PermissionRequestEvent;
+export type SessionEvent = PermissionRequestEvent | SessionNameChangeEvent;

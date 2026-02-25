@@ -13,6 +13,7 @@ import { Platform } from 'react-native';
 import type { Row, Store } from 'tinybase';
 import type {
   PermissionRequestEvent,
+  SessionNameChangeEvent,
   TimelineBatchPayload,
   TimelineItem,
   SocketMessage,
@@ -240,6 +241,11 @@ function upsertSession(
       partial.model = session.model;
     }
 
+    // Update name if Base provides one (from /rename or custom-title JSONL).
+    if (session.name) {
+      partial.name = session.name;
+    }
+
     store.setPartialRow('sessions', session.id, partial);
   } else {
     store.setRow('sessions', session.id, {
@@ -383,6 +389,35 @@ function extractPermissionRequests(items: TimelineItem[]): Map<string, Permissio
   }
 
   return requests;
+}
+
+function extractSessionNameChanges(items: TimelineItem[]): Map<string, SessionNameChangeEvent> {
+  const events = new Map<string, SessionNameChangeEvent>();
+
+  for (const item of items) {
+    if (item.kind !== 'session_event') continue;
+    if (item.event.type !== 'session_name_change') continue;
+
+    const existing = events.get(item.sessionId);
+    if (!existing || existing.timestamp.localeCompare(item.event.timestamp) <= 0) {
+      events.set(item.sessionId, item.event);
+    }
+  }
+
+  return events;
+}
+
+function applySessionNameChanges(
+  store: Store,
+  nameChanges: Map<string, SessionNameChangeEvent>,
+): void {
+  if (nameChanges.size === 0) return;
+
+  store.transaction(() => {
+    for (const [sessionId, event] of nameChanges) {
+      store.setPartialRow('sessions', sessionId, { name: event.name });
+    }
+  });
 }
 
 function updatePendingPermissions(
@@ -791,6 +826,10 @@ async function handleMessagesBatchInternal(
   // Status + pending permissions
   updateSessionStatus(store, messages);
   updatePendingPermissions(store, permissionRequests, resolvedToolUseIds);
+
+  // Session name changes (from /rename)
+  const nameChanges = extractSessionNameChanges(items);
+  applySessionNameChanges(store, nameChanges);
 
   return getLastItemInfo(items);
 }

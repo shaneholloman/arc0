@@ -13,9 +13,17 @@ import {
   ensureArc0Session,
   createWindow,
   runInPane,
+  getPaneTty,
 } from "../lib/tmux.js";
 
 const execAsync = promisify(exec);
+
+/**
+ * Pending session names for mobile-initiated sessions.
+ * Maps TTY device path -> desired session name.
+ * Consumed by event-handlers on session:start to auto-send /rename.
+ */
+export const pendingSessionNames = new Map<string, string>();
 
 /**
  * Check if a directory exists.
@@ -143,7 +151,25 @@ export async function launchSession(
 
   console.log(`[session-launcher] Launched ${providerCommand} in ${target}`);
 
-  // 7. Success - the provider's hook will create the session file
+  // 7. Store pending name so event-handlers can auto-send /rename on session:start
+  if (name) {
+    const tty = await getPaneTty(target);
+    if (tty) {
+      pendingSessionNames.set(tty, name);
+      // Safety: remove after 60s if session:start never fires (e.g. CLI crashed).
+      // Only delete if the value hasn't been replaced by a newer launch.
+      setTimeout(() => {
+        if (pendingSessionNames.get(tty) === name) {
+          pendingSessionNames.delete(tty);
+        }
+      }, 60_000);
+      console.log(
+        `[session-launcher] Stored pending name '${name}' for tty ${tty}`,
+      );
+    }
+  }
+
+  // 8. Success - the provider's hook will create the session file
   // which will be detected by SessionFileWatcher and broadcast to mobile
   return {
     status: "success",

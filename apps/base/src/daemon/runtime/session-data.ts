@@ -1,5 +1,6 @@
 import type { SessionData, SessionFile } from "../../lib/types.js";
 import { findPaneByTty } from "../../lib/tmux.js";
+import { jsonlStore } from "../../transcript/store.js";
 
 export async function sessionFileToData(
   session: SessionFile,
@@ -15,7 +16,7 @@ export async function sessionFileToData(
     id: session.sessionId,
     provider: session.provider,
     cwd: session.cwd,
-    name: null, // TODO: extract from JSONL
+    name: jsonlStore.getName(session.sessionId),
     model: null, // TODO: extract from JSONL
     gitBranch: null, // TODO: extract from JSONL or git
     startedAt: session.startedAt,

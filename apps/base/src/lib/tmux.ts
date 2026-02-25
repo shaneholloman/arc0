@@ -130,6 +130,23 @@ export async function sendKeyToPane(
   });
 }
 
+/**
+ * Get the TTY device for a tmux pane target.
+ * @param target The tmux target (e.g., "arc0:1")
+ * @returns The TTY path (e.g., "/dev/ttys003") or null
+ */
+export async function getPaneTty(target: string): Promise<string | null> {
+  try {
+    const { stdout } = await execAsync(
+      `tmux display-message -p -t ${JSON.stringify(target)} "#{pane_tty}"`,
+    );
+    const tty = stdout.trim();
+    return tty || null;
+  } catch {
+    return null;
+  }
+}
+
 // =============================================================================
 // Session/Window Creation (for mobile-initiated sessions)
 // =============================================================================
